@@ -1,6 +1,6 @@
 import { TextField } from "@mui/material";
 
-const textFieldStyles = {
+const darkTextFieldStyles = {
     input: {
         color: "ivory",
     },
@@ -28,6 +28,7 @@ type TextInputProps = {
     onChange: (value: string) => void;
     label?: string;
     minWidth?: number;
+    useDarkStyles?: boolean;
 };
 
 export const TextInput = (props: TextInputProps) => {
@@ -36,6 +37,7 @@ export const TextInput = (props: TextInputProps) => {
         onChange,
         label = "Input",
         minWidth = 220,
+        useDarkStyles = false,
     } = props;
 
     return (
@@ -48,7 +50,7 @@ export const TextInput = (props: TextInputProps) => {
             }}
             sx={{
                 minWidth,
-                ...textFieldStyles,
+                ...(useDarkStyles ? darkTextFieldStyles : {}),
             }}
         />
     );

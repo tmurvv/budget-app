@@ -12,6 +12,7 @@ import {
   Typography,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
+import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/db";
 import { CATEGORY_MAP } from "../features/categories/categories";
 import { CategorySelect } from "./CategorySelect";
@@ -44,6 +45,9 @@ const formatDate = (date: string) => {
 
 export const TransactionTable = (props: TransactionTableProps) => {
   const { title, transactions } = props;
+  const subCategories = useLiveQuery(async () => {
+    return db.subCategories.toArray();
+  }, []);
 
   const handleCategoryChange = async (
       transactionId: number | undefined,
@@ -58,7 +62,19 @@ export const TransactionTable = (props: TransactionTableProps) => {
       subCategory: "",
     });
   };
+  const getSubCategoryOptions = (categoryName: string | undefined) => {
+    if (!categoryName) {
+      return [];
+    }
 
+    return (subCategories ?? [])
+        .filter((subCategory) => {
+          return subCategory.categoryName === categoryName;
+        })
+        .map((subCategory) => {
+          return subCategory.name;
+        });
+  };
   const handleSubCategoryChange = async (
       transactionId: number | undefined,
       newSubCategory: string,
@@ -153,12 +169,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
                         <em>None</em>
                       </MenuItem>
 
-                      {(transaction.category
-                              ? CATEGORY_MAP[
-                              transaction.category as keyof typeof CATEGORY_MAP
-                              ] ?? []
-                              : []
-                      ).map((subCategory) => (
+                      {getSubCategoryOptions(transaction.category).map((subCategory) => (
                           <MenuItem key={subCategory} value={subCategory}>
                             {subCategory}
                           </MenuItem>

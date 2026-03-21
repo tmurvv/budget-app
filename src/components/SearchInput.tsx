@@ -15,6 +15,7 @@ export const SearchInput = (props: SearchInputProps) => {
             value={value}
             minWidth={300}
             onChange={onChange}
+            useDarkStyles={true}
         />
     );
 };

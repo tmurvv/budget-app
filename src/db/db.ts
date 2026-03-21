@@ -7,9 +7,16 @@ export type CategoryRecord = {
   name: string;
 };
 
+export type SubCategoryRecord = {
+  id?: number;
+  categoryName: string;
+  name: string;
+};
+
 export class BudgetAppDb extends Dexie {
   transactions!: Table<Transaction, number>;
   categories!: Table<CategoryRecord, number>;
+  subCategories!: Table<SubCategoryRecord, number>;
 
   constructor() {
     super("budgetAppDb");
@@ -17,6 +24,7 @@ export class BudgetAppDb extends Dexie {
     this.version(1).stores({
       transactions: "++id,&fingerprint,date,amount,description,category,subCategory",
       categories: "++id,&name",
+      subCategories: "++id, categoryName, [categoryName+name]",
     });
   }
 }

@@ -5,15 +5,16 @@ import { CategoriesPage } from "./features/categories/CategoriesPage";
 import { seedCategories } from "./features/categories/seed-categories";
 import { TransactionUploadPage } from "./features/transactions/TransactionUploadPage";
 import { TransactionsPage } from "./features/transactions/TransactionsPage";
+import { SubCategoriesPage } from "./features/categories/SubCategoriesPage";
 
 const App = () => {
   const [activePage, setActivePage] = useState<
-    "upload" | "transactions" | "categories"
+    "upload" | "transactions" | "categories" | "subCategories"
   >("transactions");
 
-    useEffect(() => {
-        void seedCategories();
-    }, []);
+  useEffect(() => {
+    void seedCategories();
+  }, []);
 
   return (
     <Box sx={{ paddingTop: 2 }}>
@@ -44,10 +45,19 @@ const App = () => {
         >
           Categories
         </Button>
+        <Button
+          variant={activePage === "subCategories" ? "contained" : "outlined"}
+          onClick={() => {
+            setActivePage("subCategories");
+          }}
+        >
+          Sub-categories
+        </Button>
       </Box>
       {activePage === "transactions" && <TransactionsPage />}
       {activePage === "upload" && <TransactionUploadPage />}
       {activePage === "categories" && <CategoriesPage />}
+      {activePage === "subCategories" && <SubCategoriesPage />}
     </Box>
   );
 };
