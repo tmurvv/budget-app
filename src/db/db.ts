@@ -21,8 +21,8 @@ export class BudgetAppDb extends Dexie {
   constructor() {
     super("budgetAppDb");
 
-    this.version(1).stores({
-      transactions: "++id,&fingerprint,date,amount,description,category,subCategory",
+    this.version(2).stores({
+      transactions: "++id,&fingerprint,date,amount,description,category,subCategory,notes",
       categories: "++id,&name",
       subCategories: "++id, categoryName, [categoryName+name]",
     });

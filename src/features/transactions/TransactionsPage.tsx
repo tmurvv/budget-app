@@ -3,9 +3,8 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { Box, FormControlLabel, Switch, Typography } from "@mui/material";
 
 import { db } from "../../db/db";
-import { CategorySelect } from "../../components/CategorySelect";
-import { SearchInput } from "../../components/SearchInput";
-import { TransactionTable } from "../../components/TransactionTable";
+import { CategorySelect, SearchInput } from "../../components";
+import {TransactionTable} from "./TransactionTable";
 
 export const TransactionsPage = () => {
     const [selectedCategory, setSelectedCategory] = useState("");
@@ -17,8 +16,9 @@ export const TransactionsPage = () => {
     }, []);
 
     const filteredTransactions = (transactions ?? []).filter((transaction) => {
-        const normalizedDescription = transaction.description?.toLowerCase().trim();
-        const normalizedSearchText = searchText?.toLowerCase().trim();
+        const normalizedDescription = transaction.description.toLowerCase().trim();
+        const normalizedNotes = (transaction.notes ?? "").toLowerCase().trim();
+        const normalizedSearchText = searchText.toLowerCase().trim();
 
         const matchesCategory = !selectedCategory
             ? true
@@ -26,10 +26,14 @@ export const TransactionsPage = () => {
 
         const matchesSearch = !normalizedSearchText
             ? true
-            : normalizedDescription.includes(normalizedSearchText);
+            : normalizedDescription.includes(normalizedSearchText) ||
+            normalizedNotes.includes(normalizedSearchText);
+
+        const hasIncompleteCategorization =
+            !transaction.category || !transaction.subCategory;
 
         const matchesUncategorized = showUncategorizedOnly
-            ? !transaction.category
+            ? hasIncompleteCategorization
             : true;
 
         return matchesCategory && matchesSearch && matchesUncategorized;

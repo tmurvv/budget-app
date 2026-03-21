@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Box, Button, CircularProgress, Typography } from "@mui/material";
 
 import { db } from "../../db/db";
-import { TransactionTable } from "../../components/TransactionTable";
+import { TransactionTable } from "./TransactionTable";
 import { importTransactionsFromCsvFile } from "./transaction-service";
 import type { Transaction } from "./types";
 

@@ -1,3 +1,4 @@
+import { useLiveQuery } from "dexie-react-hooks";
 import {
   IconButton,
   MenuItem,
@@ -12,10 +13,9 @@ import {
   Typography,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "../db/db";
-import { CATEGORY_MAP } from "../features/categories/categories";
-import { CategorySelect } from "./CategorySelect";
+
+import {CategorySelect, NotesInput, TextInput} from "../../components";
+import { db } from "../../db/db";
 
 type TransactionTableRow = {
   id?: number;
@@ -24,6 +24,7 @@ type TransactionTableRow = {
   description: string;
   category?: string;
   subCategory?: string;
+  notes?: string;
   fingerprint?: string;
 };
 
@@ -45,6 +46,7 @@ const formatDate = (date: string) => {
 
 export const TransactionTable = (props: TransactionTableProps) => {
   const { title, transactions } = props;
+
   const subCategories = useLiveQuery(async () => {
     return db.subCategories.toArray();
   }, []);
@@ -62,19 +64,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
       subCategory: "",
     });
   };
-  const getSubCategoryOptions = (categoryName: string | undefined) => {
-    if (!categoryName) {
-      return [];
-    }
 
-    return (subCategories ?? [])
-        .filter((subCategory) => {
-          return subCategory.categoryName === categoryName;
-        })
-        .map((subCategory) => {
-          return subCategory.name;
-        });
-  };
   const handleSubCategoryChange = async (
       transactionId: number | undefined,
       newSubCategory: string,
@@ -88,10 +78,6 @@ export const TransactionTable = (props: TransactionTableProps) => {
     });
   };
 
-  if (transactions.length === 0) {
-    return null;
-  }
-
   const handleDelete = async (transactionId: number | undefined) => {
     if (!transactionId) {
       return;
@@ -100,12 +86,30 @@ export const TransactionTable = (props: TransactionTableProps) => {
     await db.transactions.delete(transactionId);
   };
 
+  const getSubCategoryOptions = (categoryName: string | undefined) => {
+    if (!categoryName || categoryName === "No Category") {
+      return [];
+    }
+
+    return (subCategories ?? [])
+        .filter((subCategory) => {
+          return subCategory.categoryName === categoryName;
+        })
+        .map((subCategory) => {
+          return subCategory.name;
+        });
+  };
+
+  if (transactions.length === 0) {
+    return null;
+  }
+
   return (
       <TableContainer
           component={Paper}
           sx={{
             marginTop: 3,
-            maxWidth: 1100,
+            maxWidth: 2400,
             marginLeft: "auto",
             marginRight: "auto",
           }}
@@ -122,6 +126,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
               <TableCell align="right">Amount</TableCell>
               <TableCell>Category</TableCell>
               <TableCell>Sub-category</TableCell>
+              <TableCell>Notes</TableCell>
               <TableCell align="center">Delete</TableCell>
             </TableRow>
           </TableHead>
@@ -163,19 +168,39 @@ export const TransactionTable = (props: TransactionTableProps) => {
                               event.target.value as string,
                           );
                         }}
-                        sx={{ minWidth: 160 }}
+                        sx={{ minWidth: 180 }}
                     >
                       <MenuItem value="">
-                        <em>None</em>
+                        <em>Unassigned</em>
                       </MenuItem>
 
-                      {getSubCategoryOptions(transaction.category).map((subCategory) => (
-                          <MenuItem key={subCategory} value={subCategory}>
-                            {subCategory}
-                          </MenuItem>
-                      ))}
+                      <MenuItem value="No Sub-category">No Sub-category</MenuItem>
+
+                      {getSubCategoryOptions(transaction.category).map(
+                          (subCategory) => (
+                              <MenuItem key={subCategory} value={subCategory}>
+                                {subCategory}
+                              </MenuItem>
+                          ),
+                      )}
                     </Select>
                   </TableCell>
+
+                  <TableCell>
+                    <NotesInput
+                        value={transaction.notes}
+                        onSave={(newNotes) => {
+                          if (!transaction.id) {
+                            return;
+                          }
+
+                          void db.transactions.update(transaction.id, {
+                            notes: newNotes,
+                          });
+                        }}
+                    />
+                  </TableCell>
+
                   <TableCell align="center">
                     <IconButton
                         color="error"
