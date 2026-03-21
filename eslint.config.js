@@ -20,13 +20,16 @@ export default defineConfig([
       globals: globals.browser,
       parserOptions: {
         ecmaVersion: "latest",
-        ecmaFeatures: {jsx: true},
+        ecmaFeatures: { jsx: true },
         sourceType: "module",
       },
     },
     rules: {
       "no-unused-vars": "off",
-      "@typescript-eslint/no-unused-vars": ["error", {varsIgnorePattern: "^[A-Z_]"}],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { varsIgnorePattern: "^[A-Z_]" },
+      ],
     },
   },
 ]);
