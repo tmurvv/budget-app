@@ -1,8 +1,10 @@
 export type Transaction = {
   id?: number;
-  date: string; // ISO string
-  amount: number; // positive/negative
+  date: string;
+  amount: number;
   description: string;
-  fingerprint: string; // for dedupe
-  raw?: Record<string, any>; // original CSV row (for debugging)
+  fingerprint: string;
+  category?: string;
+  subCategory?: string;
+  raw?: Record<string, any>;
 };
