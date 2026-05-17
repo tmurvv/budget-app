@@ -1,5 +1,6 @@
 export type Transaction = {
   id?: number;
+  bank: string;
   date: string;
   amount: number;
   description: string;

@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 
 import { AppAlert, ConfirmDialog, TextInput } from "../../components";
+import { ViewRules } from "../rules/view-rules";
 import { db } from "../../db/db";
 
 type CategoryToDelete = {
@@ -212,6 +213,7 @@ export const CategoriesPage = () => {
         <Typography variant="h4" gutterBottom align="center">
           Categories
         </Typography>
+        <ViewRules />
 
         <Box sx={{ maxWidth: 600, marginLeft: "auto", marginRight: "auto" }}>
           <AppAlert

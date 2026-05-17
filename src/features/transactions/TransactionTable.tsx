@@ -1,5 +1,14 @@
 import { useLiveQuery } from "dexie-react-hooks";
+
 import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TextField,
+  FormControl,
+  InputLabel,
   IconButton,
   MenuItem,
   Paper,
@@ -14,23 +23,14 @@ import {
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 
-import {CategorySelect, NotesInput, TextInput} from "../../components";
+import { CategorySelect, NotesInput } from "../../components";
 import { db } from "../../db/db";
-
-type TransactionTableRow = {
-  id?: number;
-  date: string;
-  amount: number;
-  description: string;
-  category?: string;
-  subCategory?: string;
-  notes?: string;
-  fingerprint?: string;
-};
+import { Transaction } from "./types";
+import { useState } from "react";
 
 type TransactionTableProps = {
   title: string;
-  transactions: TransactionTableRow[];
+  transactions: Transaction[];
 };
 
 const formatCurrency = (amount: number) => {
@@ -46,16 +46,42 @@ const formatDate = (date: string) => {
 
 export const TransactionTable = (props: TransactionTableProps) => {
   const { title, transactions } = props;
+  const [pendingRule, setPendingRule] = useState<{
+    transactionId: number;
+    matchValue: string;
+    categoryName: string;
+    subCategoryName?: string;
+  } | null>(null);
 
   const subCategories = useLiveQuery(async () => {
     return db.subCategories.toArray();
   }, []);
 
+  const getNextRulePriority = async () => {
+    const rules = await db.categoryRules.toArray();
+
+    if (rules.length === 0) {
+      return 100;
+    }
+
+    const lowestPriority = rules.reduce((currentLowestPriority, rule) => {
+      return Math.min(currentLowestPriority, rule.priority);
+    }, rules[0].priority);
+
+    return lowestPriority - 1;
+  };
+
   const handleCategoryChange = async (
-      transactionId: number | undefined,
-      newCategory: string,
+    transactionId: number | undefined,
+    newCategory: string,
   ) => {
     if (!transactionId) {
+      return;
+    }
+
+    const transaction = await db.transactions.get(transactionId);
+
+    if (!transaction) {
       return;
     }
 
@@ -63,21 +89,40 @@ export const TransactionTable = (props: TransactionTableProps) => {
       category: newCategory,
       subCategory: "",
     });
+
+    setPendingRule({
+      transactionId,
+      matchValue: transaction.description,
+      categoryName: newCategory,
+      subCategoryName: "",
+    });
   };
 
   const handleSubCategoryChange = async (
-      transactionId: number | undefined,
-      newSubCategory: string,
+    transactionId: number | undefined,
+    newSubCategory: string,
   ) => {
     if (!transactionId) {
+      return;
+    }
+
+    const transaction = await db.transactions.get(transactionId);
+
+    if (!transaction) {
       return;
     }
 
     await db.transactions.update(transactionId, {
       subCategory: newSubCategory,
     });
-  };
 
+    setPendingRule({
+      transactionId,
+      matchValue: transaction.description,
+      categoryName: transaction.category ?? "",
+      subCategoryName: newSubCategory,
+    });
+  };
   const handleDelete = async (transactionId: number | undefined) => {
     if (!transactionId) {
       return;
@@ -92,12 +137,12 @@ export const TransactionTable = (props: TransactionTableProps) => {
     }
 
     return (subCategories ?? [])
-        .filter((subCategory) => {
-          return subCategory.categoryName === categoryName;
-        })
-        .map((subCategory) => {
-          return subCategory.name;
-        });
+      .filter((subCategory) => {
+        return subCategory.categoryName === categoryName;
+      })
+      .map((subCategory) => {
+        return subCategory.name;
+      });
   };
 
   if (transactions.length === 0) {
@@ -105,23 +150,25 @@ export const TransactionTable = (props: TransactionTableProps) => {
   }
 
   return (
+    <>
       <TableContainer
-          component={Paper}
-          sx={{
-            marginTop: 3,
-            maxWidth: 2400,
-            marginLeft: "auto",
-            marginRight: "auto",
-          }}
+        component={Paper}
+        sx={{
+          marginTop: 3,
+          maxWidth: 2400,
+          marginLeft: "auto",
+          marginRight: "auto",
+        }}
       >
         <Typography variant="h6" sx={{ padding: 2, paddingBottom: 0 }}>
           {title}
         </Typography>
 
-        <Table>
+        <Table size={"small"}>
           <TableHead>
             <TableRow>
               <TableCell>Date</TableCell>
+              <TableCell>Bank</TableCell>
               <TableCell>Description</TableCell>
               <TableCell align="right">Amount</TableCell>
               <TableCell>Category</TableCell>
@@ -133,88 +180,196 @@ export const TransactionTable = (props: TransactionTableProps) => {
 
           <TableBody>
             {transactions.map((transaction, transactionIndex) => (
-                <TableRow
-                    key={
-                        transaction.fingerprint ??
-                        `${transaction.date}-${transaction.description}-${transaction.amount}-${transactionIndex}`
-                    }
-                >
-                  <TableCell>{formatDate(transaction.date)}</TableCell>
-                  <TableCell>{transaction.description}</TableCell>
-                  <TableCell align="right">
-                    {formatCurrency(transaction.amount)}
-                  </TableCell>
+              <TableRow
+                key={
+                  transaction.fingerprint ??
+                  `${transaction.date}-${transaction.description}-${transaction.amount}-${transactionIndex}`
+                }
+              >
+                <TableCell>{formatDate(transaction.date)}</TableCell>
 
-                  <TableCell>
-                    <CategorySelect
-                        label="Category"
-                        value={transaction.category ?? ""}
-                        minWidth={160}
-                        onChange={(newCategory) => {
-                          void handleCategoryChange(transaction.id, newCategory);
-                        }}
-                    />
-                  </TableCell>
+                <TableCell sx={{ whiteSpace: "nowrap" }}>
+                  {transaction.bank === "RBC" ? "🔵 RBC" : "🟢 MAN"}
+                </TableCell>
 
-                  <TableCell>
-                    <Select
-                        size="small"
-                        value={transaction.subCategory ?? ""}
-                        displayEmpty
-                        disabled={!transaction.category}
-                        onChange={(event) => {
-                          void handleSubCategoryChange(
-                              transaction.id,
-                              event.target.value as string,
-                          );
-                        }}
-                        sx={{ minWidth: 180 }}
-                    >
-                      <MenuItem value="">
-                        <em>Unassigned</em>
-                      </MenuItem>
+                <TableCell>{transaction.description}</TableCell>
 
-                      <MenuItem value="No Sub-category">No Sub-category</MenuItem>
+                <TableCell align="right">
+                  {formatCurrency(transaction.amount)}
+                </TableCell>
 
-                      {getSubCategoryOptions(transaction.category).map(
-                          (subCategory) => (
-                              <MenuItem key={subCategory} value={subCategory}>
-                                {subCategory}
-                              </MenuItem>
-                          ),
-                      )}
-                    </Select>
-                  </TableCell>
+                <TableCell>
+                  <CategorySelect
+                    label="Category"
+                    value={transaction.category ?? ""}
+                    minWidth={160}
+                    onChange={(newCategory) => {
+                      void handleCategoryChange(transaction.id, newCategory);
+                    }}
+                  />
+                </TableCell>
 
-                  <TableCell>
-                    <NotesInput
-                        value={transaction.notes}
-                        onSave={(newNotes) => {
-                          if (!transaction.id) {
-                            return;
-                          }
+                <TableCell>
+                  <Select
+                    size="small"
+                    value={transaction.subCategory ?? ""}
+                    displayEmpty
+                    disabled={!transaction.category}
+                    onChange={(event) => {
+                      void handleSubCategoryChange(
+                        transaction.id,
+                        event.target.value as string,
+                      );
+                    }}
+                    sx={{ minWidth: 180 }}
+                  >
+                    <MenuItem value="">
+                      <em>Unassigned</em>
+                    </MenuItem>
 
-                          void db.transactions.update(transaction.id, {
-                            notes: newNotes,
-                          });
-                        }}
-                    />
-                  </TableCell>
+                    <MenuItem value="No Sub-category">No Sub-category</MenuItem>
 
-                  <TableCell align="center">
-                    <IconButton
-                        color="error"
-                        onClick={() => {
-                          void handleDelete(transaction.id);
-                        }}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
+                    {getSubCategoryOptions(transaction.category).map(
+                      (subCategory) => (
+                        <MenuItem key={subCategory} value={subCategory}>
+                          {subCategory}
+                        </MenuItem>
+                      ),
+                    )}
+                  </Select>
+                </TableCell>
+
+                <TableCell>
+                  <NotesInput
+                    value={transaction.notes}
+                    onSave={(newNotes) => {
+                      if (!transaction.id) {
+                        return;
+                      }
+
+                      void db.transactions.update(transaction.id, {
+                        notes: newNotes,
+                      });
+                    }}
+                  />
+                </TableCell>
+
+                <TableCell align="center">
+                  <IconButton
+                    color="error"
+                    onClick={() => {
+                      void handleDelete(transaction.id);
+                    }}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
             ))}
           </TableBody>
         </Table>
       </TableContainer>
+      <Dialog
+        open={Boolean(pendingRule)}
+        onClose={() => {
+          setPendingRule(null);
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ color: "black" }}>
+          Save rule for future transactions?
+        </DialogTitle>
+
+        <DialogContent>
+          <TextField
+            fullWidth
+            margin="normal"
+            label="Match text"
+            value={pendingRule?.matchValue ?? ""}
+            onChange={(event) => {
+              if (!pendingRule) {
+                return;
+              }
+
+              setPendingRule({
+                ...pendingRule,
+                matchValue: event.target.value,
+              });
+            }}
+          />
+
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Sub-category</InputLabel>
+
+            <Select
+              label="Sub-category"
+              value={pendingRule?.subCategoryName ?? ""}
+              onChange={(event) => {
+                if (!pendingRule) {
+                  return;
+                }
+
+                setPendingRule({
+                  ...pendingRule,
+                  subCategoryName: event.target.value,
+                });
+              }}
+            >
+              <MenuItem value="">
+                <em>Unassigned</em>
+              </MenuItem>
+
+              {getSubCategoryOptions(pendingRule?.categoryName).map(
+                (subCategory) => {
+                  return (
+                    <MenuItem key={subCategory} value={subCategory}>
+                      {subCategory}
+                    </MenuItem>
+                  );
+                },
+              )}
+            </Select>
+          </FormControl>
+        </DialogContent>
+
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setPendingRule(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={async () => {
+              if (!pendingRule) {
+                return;
+              }
+
+              const trimmedMatchValue = pendingRule.matchValue.trim();
+
+              if (!trimmedMatchValue) {
+                return;
+              }
+
+              const nextPriority = await getNextRulePriority();
+
+              await db.categoryRules.add({
+                matchValue: trimmedMatchValue,
+                categoryName: pendingRule.categoryName,
+                subCategoryName: pendingRule.subCategoryName?.trim() || "",
+                priority: nextPriority,
+                isActive: true,
+              });
+              setPendingRule(null);
+            }}
+          >
+            Save rule
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 };

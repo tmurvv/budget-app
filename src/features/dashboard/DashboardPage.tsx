@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Box, Paper, Typography } from "@mui/material";
+import { Box, Button, Paper, Typography } from "@mui/material";
 import {
   Bar,
   BarChart,
@@ -50,37 +50,6 @@ const cardStyles = {
   textAlign: "center",
 } as const;
 
-const getSubCategoryTotalsByCategory = (transactions) => {
-  const result = new Map();
-
-  for (const transaction of transactions) {
-    const category = transaction.category?.trim() || "Uncategorized";
-    const subCategory = transaction.subCategory?.trim() || "Unassigned";
-
-    if (!result.has(category)) {
-      result.set(category, new Map());
-    }
-
-    const subMap = result.get(category);
-    const current = subMap.get(subCategory) ?? 0;
-
-    subMap.set(
-      subCategory,
-      Math.round((current + Math.abs(transaction.amount)) * 100) / 100,
-    );
-  }
-
-  const final = {};
-
-  for (const [category, subMap] of result.entries()) {
-    final[category] = Array.from(subMap.entries())
-      .map(([name, total]) => ({ name, total }))
-      .sort((a, b) => b.total - a.total);
-  }
-
-  return final;
-};
-
 const roundCurrency = (amount: number) => {
   return Math.round((amount + Number.EPSILON) * 100) / 100;
 };
@@ -94,15 +63,70 @@ const formatCurrency = (amount: number) => {
   });
 };
 
+const formatCompactCurrency = (amount: number) => {
+  return `$${roundCurrency(amount).toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })}`;
+};
+
+const getMonthKey = (date: string) => {
+  const transactionDate = new Date(date);
+
+  return `${transactionDate.getFullYear()}-${String(
+    transactionDate.getMonth() + 1,
+  ).padStart(2, "0")}`;
+};
+
 const formatMonthLabel = (monthKey: string) => {
   const [year, month] = monthKey.split("-");
+
   return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString(
     undefined,
     {
       year: "numeric",
-      month: "short",
+      month: "long",
     },
   );
+};
+
+const getSubCategoryTotalsByCategory = (
+  transactions: Array<{
+    amount: number;
+    category?: string;
+    subCategory?: string;
+  }>,
+) => {
+  const result = new Map<string, Map<string, number>>();
+
+  for (const transaction of transactions) {
+    const category = transaction.category?.trim() || "Uncategorized";
+    const subCategory = transaction.subCategory?.trim() || "Unassigned";
+
+    if (!result.has(category)) {
+      result.set(category, new Map());
+    }
+
+    const subCategoryMap = result.get(category)!;
+    const current = subCategoryMap.get(subCategory) ?? 0;
+
+    subCategoryMap.set(
+      subCategory,
+      roundCurrency(current + Math.abs(transaction.amount)),
+    );
+  }
+
+  const final: Record<string, Array<{ name: string; total: number }>> = {};
+
+  for (const [category, subCategoryMap] of result.entries()) {
+    final[category] = Array.from(subCategoryMap.entries())
+      .map(([name, total]) => ({ name, total }))
+      .sort((firstSubCategory, secondSubCategory) => {
+        return secondSubCategory.total - firstSubCategory.total;
+      });
+  }
+
+  return final;
 };
 
 const getCategoryTotals = (
@@ -144,10 +168,7 @@ const getMonthlyTotals = (
   const monthlyTotals = new Map<string, number>();
 
   for (const transaction of transactions) {
-    const transactionDate = new Date(transaction.date);
-    const monthKey = `${transactionDate.getFullYear()}-${String(
-      transactionDate.getMonth() + 1,
-    ).padStart(2, "0")}`;
+    const monthKey = getMonthKey(transaction.date);
     const currentTotal = monthlyTotals.get(monthKey) ?? 0;
 
     monthlyTotals.set(
@@ -169,7 +190,52 @@ const getMonthlyTotals = (
     });
 };
 
+const getAvailableMonths = (
+  transactions: Array<{
+    date: string;
+  }>,
+) => {
+  const uniqueMonths = new Set<string>();
+
+  for (const transaction of transactions) {
+    uniqueMonths.add(getMonthKey(transaction.date));
+  }
+
+  return Array.from(uniqueMonths).sort((firstMonth, secondMonth) => {
+    return firstMonth.localeCompare(secondMonth);
+  });
+};
+
+const groupSmallCategories = (
+  categories: Array<{ name: string; total: number }>,
+  threshold = 40,
+) => {
+  const largeCategories = categories.filter((category) => {
+    return category.total >= threshold;
+  });
+
+  const smallCategories = categories.filter((category) => {
+    return category.total < threshold;
+  });
+
+  if (smallCategories.length === 0) {
+    return categories;
+  }
+
+  const otherTotal = roundCurrency(
+    smallCategories.reduce((runningTotal, category) => {
+      return runningTotal + category.total;
+    }, 0),
+  );
+
+  return [...largeCategories, { name: "Other", total: otherTotal }];
+};
+
 export const DashboardPage = () => {
+  const [selectedMonthIndex, setSelectedMonthIndex] = useState<number | null>(
+    null,
+  );
+
   const transactions = useLiveQuery(async () => {
     return db.transactions.toArray();
   }, []);
@@ -201,23 +267,106 @@ export const DashboardPage = () => {
       }, 0),
     );
 
+    const monthlyTotals = getMonthlyTotals(spendingTransactions);
+    const availableMonths = getAvailableMonths(spendingTransactions);
+
     return {
       totalSpending,
       totalIncome,
       uncategorizedCount,
-      categoryTotals: getCategoryTotals(spendingTransactions),
-      monthlyTotals: getMonthlyTotals(spendingTransactions),
-      subCategoryTotals: getSubCategoryTotalsByCategory(spendingTransactions),
+      monthlyTotals,
+      availableMonths,
+      spendingTransactions,
     };
   }, [transactions]);
 
-  const CustomPieTooltip = ({ active, payload, subCategoryTotals }) => {
+  const normalizedSelectedMonthIndex =
+    selectedMonthIndex === null
+      ? Math.max(dashboardData.availableMonths.length - 1, 0)
+      : Math.min(
+          Math.max(selectedMonthIndex, 0),
+          Math.max(dashboardData.availableMonths.length - 1, 0),
+        );
+
+  const selectedMonth =
+    dashboardData.availableMonths[normalizedSelectedMonthIndex] ?? "";
+
+  const monthlySpendingTransactions = dashboardData.spendingTransactions.filter(
+    (transaction) => {
+      if (!selectedMonth) {
+        return true;
+      }
+
+      return getMonthKey(transaction.date) === selectedMonth;
+    },
+  );
+
+  const monthlyCategoryTotals = groupSmallCategories(
+    getCategoryTotals(monthlySpendingTransactions),
+  );
+
+  const monthlySubCategoryTotalsByCategory = getSubCategoryTotalsByCategory(
+    monthlySpendingTransactions,
+  );
+
+  const handlePreviousMonth = () => {
+    setSelectedMonthIndex((currentIndex) => {
+      const safeCurrentIndex =
+        currentIndex === null
+          ? Math.max(dashboardData.availableMonths.length - 1, 0)
+          : currentIndex;
+
+      return Math.max(safeCurrentIndex - 1, 0);
+    });
+  };
+
+  const handleNextMonth = () => {
+    setSelectedMonthIndex((currentIndex) => {
+      const safeCurrentIndex =
+        currentIndex === null
+          ? Math.max(dashboardData.availableMonths.length - 1, 0)
+          : currentIndex;
+
+      return Math.min(
+        safeCurrentIndex + 1,
+        Math.max(dashboardData.availableMonths.length - 1, 0),
+      );
+    });
+  };
+
+  const CustomPieTooltip = ({
+    active,
+    payload,
+    subCategoryTotals,
+  }: {
+    active?: boolean;
+    payload?: Array<{ name: string; value: number }>;
+    subCategoryTotals: Record<string, Array<{ name: string; total: number }>>;
+  }) => {
     if (!active || !payload || !payload.length) {
       return null;
     }
 
     const categoryName = payload[0].name;
     const value = payload[0].value;
+
+    if (categoryName === "Other") {
+      return (
+        <Box
+          sx={{
+            backgroundColor: "lightgray",
+            color: "black",
+            padding: 2,
+            borderRadius: 1,
+            minWidth: 220,
+          }}
+        >
+          <Typography variant="subtitle2">
+            Other — {formatCurrency(value)}
+          </Typography>
+        </Box>
+      );
+    }
 
     const subCategories = subCategoryTotals[categoryName] ?? [];
 
@@ -228,24 +377,24 @@ export const DashboardPage = () => {
           color: "black",
           padding: 2,
           borderRadius: 1,
-          minWidth: 200,
+          minWidth: 220,
         }}
       >
         <Typography variant="subtitle2" sx={{ marginBottom: 1 }}>
           {categoryName} — {formatCurrency(value)}
         </Typography>
 
-        {subCategories.slice(0, 6).map((sub) => (
+        {subCategories.slice(0, 6).map((subCategory) => (
           <Box
-            key={sub.name}
+            key={subCategory.name}
             sx={{
               display: "flex",
               justifyContent: "space-between",
               fontSize: 12,
             }}
           >
-            <span>{sub.name}</span>
-            <span>{formatCurrency(sub.total)}</span>
+            <span>{subCategory.name}</span>
+            <span>{formatCurrency(subCategory.total)}</span>
           </Box>
         ))}
       </Box>
@@ -307,35 +456,65 @@ export const DashboardPage = () => {
           marginRight: "auto",
         }}
       >
-        <Paper sx={{ padding: 3, height: 420 }}>
-          <Typography variant="h6" gutterBottom>
-            Spending by Category
-          </Typography>
+        <Paper sx={{ padding: 3, height: 500, paddingBottom: 5 }}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "auto 1fr auto",
+              alignItems: "center",
+              gap: 2,
+              marginBottom: 2,
+            }}
+          >
+            <Button
+              variant="outlined"
+              onClick={handlePreviousMonth}
+              disabled={normalizedSelectedMonthIndex <= 0}
+            >
+              ◀ Previous
+            </Button>
 
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+            <Typography variant="h5" align="center">
+              Spending by Category —{" "}
+              {selectedMonth ? formatMonthLabel(selectedMonth) : "No Data"}
+            </Typography>
+
+            <Button
+              variant="outlined"
+              onClick={handleNextMonth}
+              disabled={
+                normalizedSelectedMonthIndex >=
+                dashboardData.availableMonths.length - 1
+              }
+            >
+              Next ▶
+            </Button>
+          </Box>
+
+          <ResponsiveContainer width="100%" height="70%">
+            <PieChart margin={{ top: 40, right: 30, bottom: 0, left: 30 }}>
               <Pie
-                data={dashboardData.categoryTotals}
+                data={monthlyCategoryTotals}
                 dataKey="total"
                 nameKey="name"
                 outerRadius={130}
-                label={({ value }) => formatCurrency(Number(value))}
+                label={({ name, value }) =>
+                  `${name} ${formatCompactCurrency(Number(value))}`
+                }
                 labelLine
               >
-                {dashboardData.categoryTotals.map(
-                  (categoryTotal, categoryIndex) => (
-                    <Cell
-                      key={categoryTotal.name}
-                      fill={PIE_COLORS[categoryIndex % PIE_COLORS.length]}
-                    />
-                  ),
-                )}
+                {monthlyCategoryTotals.map((categoryTotal, categoryIndex) => (
+                  <Cell
+                    key={categoryTotal.name}
+                    fill={PIE_COLORS[categoryIndex % PIE_COLORS.length]}
+                  />
+                ))}
               </Pie>
               <Tooltip
                 content={(props) => (
                   <CustomPieTooltip
                     {...props}
-                    subCategoryTotals={dashboardData.subCategoryTotals}
+                    subCategoryTotals={monthlySubCategoryTotalsByCategory}
                   />
                 )}
               />
@@ -343,7 +522,7 @@ export const DashboardPage = () => {
           </ResponsiveContainer>
         </Paper>
 
-        <Paper sx={{ padding: 3, height: 420 }}>
+        <Paper sx={{ padding: 3, height: 500, paddingBottom: 5 }}>
           <Typography variant="h6" gutterBottom>
             Monthly Spending
           </Typography>
@@ -357,8 +536,8 @@ export const DashboardPage = () => {
                 }}
               />
               <Tooltip
-                formatter={(value: number) => {
-                  return formatCurrency(value);
+                formatter={(value) => {
+                  return formatCurrency(Number(value ?? 0));
                 }}
               />
               <Bar dataKey="total">

@@ -5,6 +5,8 @@ import { db } from "../../db/db";
 import { TransactionTable } from "./TransactionTable";
 import { importTransactionsFromCsvFile } from "./transaction-service";
 import type { Transaction } from "./types";
+import { ExportDbButton } from "../../db/download-blob";
+import { ImportDbButton } from "../../db/import-blob";
 
 const getDisplayableZeroRewardTransactions = (transactions: Transaction[]) => {
   return transactions.filter((transaction) => {
@@ -109,6 +111,8 @@ export const TransactionUploadPage = () => {
           >
             Clear DB
           </Button>
+          <ExportDbButton />
+          <ImportDbButton />
         </Box>
 
         {isImporting ? (

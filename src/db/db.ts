@@ -13,20 +13,36 @@ export type SubCategoryRecord = {
   name: string;
 };
 
+export type CategoryRuleRecord = {
+  id?: number;
+  matchValue: string;
+  categoryName: string;
+  subCategoryName?: string;
+  priority: number;
+  isActive: boolean;
+};
+
 export class BudgetAppDb extends Dexie {
   transactions!: Table<Transaction, number>;
   categories!: Table<CategoryRecord, number>;
   subCategories!: Table<SubCategoryRecord, number>;
+  categoryRules!: Table<CategoryRuleRecord, number>;
 
   constructor() {
     super("budgetAppDb");
 
-    this.version(2).stores({
-      transactions: "++id,&fingerprint,date,amount,description,category,subCategory,notes",
+    this.version(4).stores({
+      transactions:
+        "++id,&fingerprint,date,amount,description,bank,category,subCategory,notes",
       categories: "++id,&name",
       subCategories: "++id, categoryName, [categoryName+name]",
+      categoryRules: "++id, matchValue, categoryName, priority, isActive",
     });
   }
 }
 
 export const db = new BudgetAppDb();
+
+if (typeof window !== "undefined") {
+  (window as unknown as { db: typeof db }).db = db;
+}
