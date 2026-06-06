@@ -13,8 +13,7 @@ import {
   YAxis,
 } from "recharts";
 
-import { db, type BudgetRecord } from "../../db/db";
-import { MONTHLY_INCOME } from "../budgeting/budget-values";
+import { db } from "../../db/db";
 
 const PIE_COLORS = [
   "#3b82f6",
@@ -130,38 +129,6 @@ const getSubCategoryTotalsByCategory = (
   return final;
 };
 
-const getBudgetStatuses = (
-  budgets: BudgetRecord[],
-  transactions: Array<{
-    amount: number;
-    category?: string;
-  }>,
-) => {
-  const categoryTotals = getCategoryTotals(transactions);
-  const actualByCategory = new Map<string, number>();
-
-  for (const categoryTotal of categoryTotals) {
-    actualByCategory.set(categoryTotal.name, categoryTotal.total);
-  }
-
-  return budgets
-    .map((budget) => {
-      const actual = actualByCategory.get(budget.categoryName) ?? 0;
-      const remaining = roundCurrency(budget.amount - actual);
-
-      return {
-        categoryName: budget.categoryName,
-        budget: budget.amount,
-        actual,
-        remaining,
-        isOverBudget: remaining < 0,
-      };
-    })
-    .sort((firstBudget, secondBudget) => {
-      return firstBudget.categoryName.localeCompare(secondBudget.categoryName);
-    });
-};
-
 const getCategoryTotals = (
   transactions: Array<{
     amount: number;
@@ -273,10 +240,6 @@ export const DashboardPage = () => {
     return db.transactions.toArray();
   }, []);
 
-  const budgets = useLiveQuery(async () => {
-    return db.budgets.toArray();
-  }, []);
-
   const dashboardData = useMemo(() => {
     const allTransactions = transactions ?? [];
 
@@ -343,28 +306,6 @@ export const DashboardPage = () => {
   );
 
   const monthlySubCategoryTotalsByCategory = getSubCategoryTotalsByCategory(
-    monthlySpendingTransactions,
-  );
-
-  const budgetRecords = budgets ?? [];
-  const monthlyTotalSpending = roundCurrency(
-    monthlySpendingTransactions.reduce((runningTotal, transaction) => {
-      return runningTotal + transaction.amount;
-    }, 0),
-  );
-  const monthlyTotalBudget = roundCurrency(
-    budgetRecords.reduce((runningTotal, budget) => {
-      return runningTotal + budget.amount;
-    }, 0),
-  );
-  const monthlyIncomeRemaining = roundCurrency(
-    MONTHLY_INCOME - monthlyTotalSpending,
-  );
-  const monthlyBudgetRemaining = roundCurrency(
-    monthlyTotalBudget - monthlyTotalSpending,
-  );
-  const monthlyBudgetStatuses = getBudgetStatuses(
-    budgetRecords,
     monthlySpendingTransactions,
   );
 
@@ -466,58 +407,6 @@ export const DashboardPage = () => {
         Dashboard
       </Typography>
 
-      <Typography variant="h5" gutterBottom align="center">
-        {selectedMonth ? formatMonthLabel(selectedMonth) : "Current Month"}
-      </Typography>
-
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, minmax(200px, 1fr))",
-          gap: 3,
-          maxWidth: 1200,
-          marginLeft: "auto",
-          marginRight: "auto",
-          marginBottom: 4,
-        }}
-      >
-        <Paper sx={cardStyles}>
-          <Typography variant="h6" gutterBottom>
-            Monthly Income
-          </Typography>
-          <Typography variant="h4">{formatCurrency(MONTHLY_INCOME)}</Typography>
-        </Paper>
-
-        <Paper sx={cardStyles}>
-          <Typography variant="h6" gutterBottom>
-            Monthly Spending
-          </Typography>
-          <Typography variant="h4">
-            {formatCurrency(monthlyTotalSpending)}
-          </Typography>
-        </Paper>
-
-        <Paper sx={cardStyles}>
-          <Typography variant="h6" gutterBottom>
-            Cash Remaining
-          </Typography>
-          <Typography variant="h4">
-            {formatCurrency(monthlyIncomeRemaining)}
-          </Typography>
-        </Paper>
-
-        <Paper sx={cardStyles}>
-          <Typography variant="h6" gutterBottom>
-            Budget Status
-          </Typography>
-          <Typography variant="h4">
-            {monthlyBudgetRemaining < 0
-              ? `${formatCurrency(Math.abs(monthlyBudgetRemaining))} over`
-              : `${formatCurrency(monthlyBudgetRemaining)} left`}
-          </Typography>
-        </Paper>
-      </Box>
-
       <Box
         sx={{
           display: "grid",
@@ -556,47 +445,6 @@ export const DashboardPage = () => {
           </Typography>
         </Paper>
       </Box>
-
-      <Paper
-        sx={{
-          padding: 3,
-          maxWidth: 1200,
-          marginLeft: "auto",
-          marginRight: "auto",
-          marginBottom: 4,
-        }}
-      >
-        <Typography variant="h6" gutterBottom>
-          Budget by Category
-        </Typography>
-
-        {monthlyBudgetStatuses.map((budgetStatus) => (
-          <Box
-            key={budgetStatus.categoryName}
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "1fr repeat(3, 120px)",
-              gap: 2,
-              paddingTop: 1,
-              paddingBottom: 1,
-              borderBottom: "1px solid #eee",
-            }}
-          >
-            <Typography>{budgetStatus.categoryName}</Typography>
-            <Typography align="right">
-              {formatCurrency(budgetStatus.actual)}
-            </Typography>
-            <Typography align="right">
-              {formatCurrency(budgetStatus.budget)}
-            </Typography>
-            <Typography align="right" color={budgetStatus.isOverBudget ? "error" : "text.primary"}>
-              {budgetStatus.isOverBudget
-                ? `${formatCurrency(Math.abs(budgetStatus.remaining))} over`
-                : `${formatCurrency(budgetStatus.remaining)} left`}
-            </Typography>
-          </Box>
-        ))}
-      </Paper>
 
       <Box
         sx={{

@@ -209,122 +209,121 @@ export const CategoriesPage = () => {
   };
 
   return (
-    <Box sx={{ padding: 4 }}>
-      <Typography variant="h4" gutterBottom align="center">
-        Categories
-      </Typography>
+      <Box sx={{ padding: 4 }}>
+        <Typography variant="h4" gutterBottom align="center">
+          Categories
+        </Typography>
+        <ViewRules />
 
-      <Box sx={{ maxWidth: 600, marginLeft: "auto", marginRight: "auto" }}>
-        <AppAlert
-          open={Boolean(alertMessage)}
-          severity="warning"
-          title="Category issue"
-          message={alertMessage}
-        />
-      </Box>
+        <Box sx={{ maxWidth: 600, marginLeft: "auto", marginRight: "auto" }}>
+          <AppAlert
+              open={Boolean(alertMessage)}
+              severity="warning"
+              title="Category issue"
+              message={alertMessage}
+          />
+        </Box>
 
-      <Box
-        sx={{
-          display: "flex",
-          gap: 2,
-          justifyContent: "center",
-          marginBottom: 2,
-        }}
-      >
-        <TextInput
-          label="New category"
-          value={newCategoryName}
-          onChange={(value) => {
-            setNewCategoryName(value);
-          }}
-          useDarkStyles
-        />
-
-        <Button
-          variant="contained"
-          onClick={() => {
-            void handleAddCategory();
-          }}
+        <Box
+            sx={{
+              display: "flex",
+              gap: 2,
+              justifyContent: "center",
+              marginBottom: 2,
+            }}
         >
-          Add
-        </Button>
-      </Box>
-
-      <Paper sx={{ maxWidth: 600, marginLeft: "auto", marginRight: "auto" }}>
-        <List>
-          {(categories ?? []).map((category) => (
-            <ListItem
-              key={category.id}
-              secondaryAction={
-                <Box sx={{ display: "flex", gap: 1 }}>
-                  <IconButton
-                    edge="end"
-                    onClick={() => {
-                      handleStartRenameCategory(category.id, category.name);
-                    }}
-                  >
-                    <EditIcon />
-                  </IconButton>
-
-                  <IconButton
-                    edge="end"
-                    color="error"
-                    onClick={() => {
-                      handleStartDeleteCategory(category.id, category.name);
-                    }}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                </Box>
-              }
-            >
-              <ListItemText primary={category.name} />
-            </ListItem>
-          ))}
-        </List>
-      </Paper>
-
-      <ConfirmDialog
-        open={confirmOpen}
-        title="Delete category"
-        message={`Are you sure you want to delete "${categoryToDelete?.name}"?`}
-        confirmButtonText="Delete"
-        onConfirm={() => {
-          void handleConfirmDeleteCategory();
-        }}
-        onCancel={handleCancelDeleteCategory}
-      />
-
-      <Dialog open={renameDialogOpen} onClose={handleCancelRenameCategory}>
-        <DialogTitle>Rename category</DialogTitle>
-
-        <DialogContent>
-          <Box sx={{ paddingTop: 1 }}>
-            <TextInput
-              label="Category name"
-              value={renameCategoryName}
+          <TextInput
+              label="New category"
+              value={newCategoryName}
               onChange={(value) => {
-                setRenameCategoryName(value);
+                setNewCategoryName(value);
               }}
-            />
-          </Box>
-        </DialogContent>
-
-        <DialogActions>
-          <Button onClick={handleCancelRenameCategory}>Cancel</Button>
+              useDarkStyles
+          />
 
           <Button
-            variant="contained"
-            onClick={() => {
-              void handleConfirmRenameCategory();
-            }}
+              variant="contained"
+              onClick={() => {
+                void handleAddCategory();
+              }}
           >
-            Save
+            Add
           </Button>
-        </DialogActions>
-      </Dialog>
+        </Box>
 
-      <ViewRules />
-    </Box>
+        <Paper sx={{ maxWidth: 600, marginLeft: "auto", marginRight: "auto" }}>
+          <List>
+            {(categories ?? []).map((category) => (
+                <ListItem
+                    key={category.id}
+                    secondaryAction={
+                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <IconButton
+                            edge="end"
+                            onClick={() => {
+                              handleStartRenameCategory(category.id, category.name);
+                            }}
+                        >
+                          <EditIcon />
+                        </IconButton>
+
+                        <IconButton
+                            edge="end"
+                            color="error"
+                            onClick={() => {
+                              handleStartDeleteCategory(category.id, category.name);
+                            }}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Box>
+                    }
+                >
+                  <ListItemText primary={category.name} />
+                </ListItem>
+            ))}
+          </List>
+        </Paper>
+
+        <ConfirmDialog
+            open={confirmOpen}
+            title="Delete category"
+            message={`Are you sure you want to delete "${categoryToDelete?.name}"?`}
+            confirmButtonText="Delete"
+            onConfirm={() => {
+              void handleConfirmDeleteCategory();
+            }}
+            onCancel={handleCancelDeleteCategory}
+        />
+
+        <Dialog open={renameDialogOpen} onClose={handleCancelRenameCategory}>
+          <DialogTitle>Rename category</DialogTitle>
+
+          <DialogContent>
+            <Box sx={{ paddingTop: 1 }}>
+              <TextInput
+                  label="Category name"
+                  value={renameCategoryName}
+                  onChange={(value) => {
+                    setRenameCategoryName(value);
+                  }}
+              />
+            </Box>
+          </DialogContent>
+
+          <DialogActions>
+            <Button onClick={handleCancelRenameCategory}>Cancel</Button>
+
+            <Button
+                variant="contained"
+                onClick={() => {
+                  void handleConfirmRenameCategory();
+                }}
+            >
+              Save
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
   );
 };
