@@ -25,6 +25,14 @@ export type CategoryRuleRecord = {
 export type BudgetRecord = {
   id?: number;
   categoryName: string;
+  subCategoryName?: string;
+  amount: number;
+};
+
+export type TransactionAllocation = {
+  id?: number;
+  transactionId: number;
+  month: string;
   amount: number;
 };
 
@@ -34,6 +42,7 @@ export class BudgetAppDb extends Dexie {
   subCategories!: Table<SubCategoryRecord, number>;
   categoryRules!: Table<CategoryRuleRecord, number>;
   budgets!: Table<BudgetRecord, number>;
+  transactionAllocations!: Table<TransactionAllocation, number>;
 
   constructor() {
     super("budgetAppDb");
@@ -53,6 +62,27 @@ export class BudgetAppDb extends Dexie {
       subCategories: "++id, categoryName, [categoryName+name]",
       categoryRules: "++id, matchValue, categoryName, priority, isActive",
       budgets: "++id,&categoryName,amount",
+    });
+
+    this.version(6).stores({
+      transactions:
+        "++id,&fingerprint,date,amount,description,bank,category,subCategory,notes",
+      categories: "++id,&name",
+      subCategories: "++id, categoryName, [categoryName+name]",
+      categoryRules: "++id, matchValue, categoryName, priority, isActive",
+      budgets: "++id,&categoryName,amount",
+      transactionAllocations: "++id, transactionId, month",
+    });
+
+    this.version(7).stores({
+      transactions:
+        "++id,&fingerprint,date,amount,description,bank,category,subCategory,notes",
+      categories: "++id,&name",
+      subCategories: "++id, categoryName, [categoryName+name]",
+      categoryRules: "++id, matchValue, categoryName, priority, isActive",
+      budgets:
+        "++id, categoryName, subCategoryName, [categoryName+subCategoryName]",
+      transactionAllocations: "++id, transactionId, month",
     });
   }
 }

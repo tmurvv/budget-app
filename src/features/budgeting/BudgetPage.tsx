@@ -1,5 +1,13 @@
-import { Box, Paper, TextField, Typography } from "@mui/material";
+import {
+  Box,
+  Paper,
+  TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Typography,
+} from "@mui/material";
 import { useLiveQuery } from "dexie-react-hooks";
+import { useState } from "react";
 
 import { db } from "../../db/db";
 import { MONTHLY_INCOME } from "./budget-values";
@@ -23,24 +31,91 @@ const parseBudgetAmount = (value: string) => {
   return amount;
 };
 
+const getBudgetAmount = (
+  budgets: Array<{
+    categoryName: string;
+    subCategoryName?: string;
+    amount: number;
+  }>,
+  categoryName: string,
+  subCategoryName?: string,
+) => {
+  const budget = budgets.find((currentBudget) => {
+    return (
+      currentBudget.categoryName === categoryName &&
+      (currentBudget.subCategoryName ?? "") === (subCategoryName ?? "")
+    );
+  });
+
+  return budget?.amount ?? 0;
+};
+
+const getCategoryBudgetTotals = (
+  budgets: Array<{
+    categoryName: string;
+    subCategoryName?: string;
+    amount: number;
+  }>,
+) => {
+  const totals = new Map<string, number>();
+
+  for (const budget of budgets) {
+    if (!budget.subCategoryName) {
+      continue;
+    }
+
+    totals.set(
+      budget.categoryName,
+      (totals.get(budget.categoryName) ?? 0) + budget.amount,
+    );
+  }
+
+  return Array.from(totals.entries()).map(([categoryName, amount]) => ({
+    categoryName,
+    amount,
+  }));
+};
+
 export const BudgetPage = () => {
+  const [budgetViewMode, setBudgetViewMode] = useState<
+    "category" | "subCategory"
+  >("category");
   const budgets = useLiveQuery(async () => {
     return db.budgets.orderBy("categoryName").toArray();
   }, []);
-
-  const totalBudget = (budgets ?? []).reduce((runningTotal, budget) => {
-    return runningTotal + budget.amount;
-  }, 0);
+  const subCategories = useLiveQuery(async () => {
+    return db.subCategories.orderBy("categoryName").toArray();
+  }, []);
+  const totalBudget = getCategoryBudgetTotals(budgets ?? []).reduce(
+    (runningTotal, budget) => {
+      return runningTotal + budget.amount;
+    },
+    0,
+  );
 
   const remainingIncome = MONTHLY_INCOME - totalBudget;
 
   return (
-    <Box sx={{ padding: 4, maxWidth: 900, marginLeft: "auto", marginRight: "auto" }}>
+    <Box
+      sx={{
+        padding: 4,
+        maxWidth: 900,
+        marginLeft: "auto",
+        marginRight: "auto",
+      }}
+    >
       <Typography variant="h4" gutterBottom align="center">
         Budget
       </Typography>
 
-      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 2, marginBottom: 3 }}>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 2,
+          marginBottom: 3,
+        }}
+      >
         <Paper sx={{ padding: 2, textAlign: "center" }}>
           <Typography variant="subtitle2">Monthly Income</Typography>
           <Typography variant="h5">{formatCurrency(MONTHLY_INCOME)}</Typography>
@@ -53,41 +128,125 @@ export const BudgetPage = () => {
 
         <Paper sx={{ padding: 2, textAlign: "center" }}>
           <Typography variant="subtitle2">Income After Budget</Typography>
-          <Typography variant="h5">{formatCurrency(remainingIncome)}</Typography>
+          <Typography variant="h5">
+            {formatCurrency(remainingIncome)}
+          </Typography>
         </Paper>
       </Box>
 
       <Paper sx={{ padding: 3 }}>
-        {(budgets ?? []).map((budget) => (
-          <Box
-            key={budget.categoryName}
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "1fr 180px",
-              gap: 2,
-              alignItems: "center",
-              marginBottom: 2,
-            }}
-          >
-            <Typography>{budget.categoryName}</Typography>
+        <ToggleButtonGroup
+          exclusive
+          size="small"
+          value={budgetViewMode}
+          onChange={(_, nextViewMode: "category" | "subCategory" | null) => {
+            if (!nextViewMode) {
+              return;
+            }
 
-            <TextField
-              label="Monthly Budget"
-              type="number"
-              size="small"
-              value={budget.amount}
-              onChange={(event) => {
-                if (budget.id === undefined) {
-                  return;
-                }
+            setBudgetViewMode(nextViewMode);
+          }}
+          sx={{ marginBottom: 2, backgroundColor: "background.paper" }}
+        >
+          <ToggleButton value="category">Category</ToggleButton>
+          <ToggleButton value="subCategory">Sub-category</ToggleButton>
+        </ToggleButtonGroup>
+        {budgetViewMode === "category"
+          ? getCategoryBudgetTotals(budgets ?? []).map((budget) => (
+              <Box
+                key={budget.categoryName}
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 180px",
+                  gap: 2,
+                  alignItems: "center",
+                  marginBottom: 2,
+                }}
+              >
+                <Typography>{budget.categoryName}</Typography>
 
-                void db.budgets.update(budget.id, {
-                  amount: parseBudgetAmount(event.target.value),
-                });
-              }}
-            />
-          </Box>
-        ))}
+                <TextField
+                  label="Monthly Budget"
+                  type="number"
+                  size="small"
+                  value={budget.amount}
+                  disabled
+                />
+              </Box>
+            ))
+          : (subCategories ?? []).map((subCategory) => {
+              const existingBudget = (budgets ?? []).find((budget) => {
+                return (
+                  budget.categoryName === subCategory.categoryName &&
+                  (budget.subCategoryName ?? "") === subCategory.name
+                );
+              });
+
+              return (
+                <Box
+                  key={`${subCategory.categoryName}-${subCategory.name}`}
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 180px",
+                    gap: 2,
+                    alignItems: "center",
+                    marginBottom: 2,
+                  }}
+                >
+                  <Typography>
+                    {subCategory.categoryName} / {subCategory.name}
+                  </Typography>
+
+                  <TextField
+                    label="Monthly Budget"
+                    type="number"
+                    size="small"
+                    value={getBudgetAmount(
+                      budgets ?? [],
+                      subCategory.categoryName,
+                      subCategory.name,
+                    )}
+                    onChange={(event) => {
+                      const amount = parseBudgetAmount(event.target.value);
+
+                      if (existingBudget?.id) {
+                        void db.budgets.update(existingBudget.id, {
+                          amount,
+                        });
+
+                        return;
+                      }
+
+                      void db.budgets.add({
+                        categoryName: subCategory.categoryName,
+                        subCategoryName: subCategory.name,
+                        amount,
+                      });
+                    }}
+                  />
+                </Box>
+              );
+            })}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "1fr 180px",
+            gap: 2,
+            alignItems: "center",
+            paddingTop: 2,
+            borderTop: "1px solid #ddd",
+          }}
+        >
+          <Typography fontWeight="bold">Total</Typography>
+
+          <TextField
+            label="Monthly Budget"
+            type="number"
+            size="small"
+            value={totalBudget}
+            disabled
+          />
+        </Box>
       </Paper>
     </Box>
   );

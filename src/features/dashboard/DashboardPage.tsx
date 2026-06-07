@@ -1,6 +1,13 @@
 import { useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Box, Button, Paper, Typography } from "@mui/material";
+import {
+  Box,
+  Button,
+  Paper,
+  ToggleButtonGroup,
+  ToggleButton,
+  Typography,
+} from "@mui/material";
 import {
   Bar,
   BarChart,
@@ -56,12 +63,10 @@ const roundCurrency = (amount: number) => {
 };
 
 const formatCurrency = (amount: number) => {
-  return roundCurrency(amount).toLocaleString(undefined, {
-    style: "currency",
-    currency: "CAD",
+  return `$${roundCurrency(amount).toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  });
+  })}`;
 };
 
 const formatCompactCurrency = (amount: number) => {
@@ -108,7 +113,12 @@ const getSubCategoryTotalsByCategory = (
       result.set(category, new Map());
     }
 
-    const subCategoryMap = result.get(category)!;
+    const subCategoryMap = result.get(category);
+
+    if (!subCategoryMap) {
+      continue;
+    }
+
     const current = subCategoryMap.get(subCategory) ?? 0;
 
     subCategoryMap.set(
@@ -128,38 +138,6 @@ const getSubCategoryTotalsByCategory = (
   }
 
   return final;
-};
-
-const getBudgetStatuses = (
-  budgets: BudgetRecord[],
-  transactions: Array<{
-    amount: number;
-    category?: string;
-  }>,
-) => {
-  const categoryTotals = getCategoryTotals(transactions);
-  const actualByCategory = new Map<string, number>();
-
-  for (const categoryTotal of categoryTotals) {
-    actualByCategory.set(categoryTotal.name, categoryTotal.total);
-  }
-
-  return budgets
-    .map((budget) => {
-      const actual = actualByCategory.get(budget.categoryName) ?? 0;
-      const remaining = roundCurrency(budget.amount - actual);
-
-      return {
-        categoryName: budget.categoryName,
-        budget: budget.amount,
-        actual,
-        remaining,
-        isOverBudget: remaining < 0,
-      };
-    })
-    .sort((firstBudget, secondBudget) => {
-      return firstBudget.categoryName.localeCompare(secondBudget.categoryName);
-    });
 };
 
 const getCategoryTotals = (
@@ -192,6 +170,119 @@ const getCategoryTotals = (
     });
 };
 
+const getBudgetStatuses = (
+  budgets: BudgetRecord[],
+  transactions: Array<{
+    amount: number;
+    category?: string;
+  }>,
+) => {
+  const categoryTotals = getCategoryTotals(transactions);
+
+  const actualByCategory = new Map<string, number>();
+
+  for (const categoryTotal of categoryTotals) {
+    actualByCategory.set(categoryTotal.name, categoryTotal.total);
+  }
+
+  const budgetByCategory = new Map<string, number>();
+
+  for (const budget of budgets) {
+    const currentBudget = budgetByCategory.get(budget.categoryName) ?? 0;
+
+    budgetByCategory.set(budget.categoryName, currentBudget + budget.amount);
+  }
+
+  return Array.from(budgetByCategory.entries())
+    .map(([categoryName, budget]) => {
+      const actual = actualByCategory.get(categoryName) ?? 0;
+
+      const remaining = roundCurrency(budget - actual);
+
+      return {
+        categoryName,
+        budget,
+        actual,
+        remaining,
+        isOverBudget: remaining < 0,
+      };
+    })
+    .sort((firstBudget, secondBudget) => {
+      return firstBudget.categoryName.localeCompare(secondBudget.categoryName);
+    });
+};
+
+const getEffectiveMonthlySpendingTransactions = (
+  transactions: Array<{
+    id?: number;
+    date: string;
+    amount: number;
+    category?: string;
+    subCategory?: string;
+  }>,
+  transactionAllocations: Array<{
+    transactionId: number;
+    month: string;
+    amount: number;
+  }>,
+  selectedMonth: string,
+) => {
+  const allocationMap = new Map<
+    number,
+    Array<{ month: string; amount: number }>
+  >();
+
+  for (const allocation of transactionAllocations) {
+    const current = allocationMap.get(allocation.transactionId) ?? [];
+
+    current.push(allocation);
+
+    allocationMap.set(allocation.transactionId, current);
+  }
+
+  const result: Array<{
+    date: string;
+    amount: number;
+    category?: string;
+    subCategory?: string;
+  }> = [];
+
+  for (const transaction of transactions) {
+    if (transaction.amount <= 0) {
+      continue;
+    }
+
+    const transactionId = transaction.id;
+
+    const allocations = transactionId
+      ? allocationMap.get(transactionId)
+      : undefined;
+
+    if (allocations && allocations.length > 0) {
+      const matchingAllocation = allocations.find((allocation) => {
+        return allocation.month === selectedMonth;
+      });
+
+      if (matchingAllocation) {
+        result.push({
+          date: `${matchingAllocation.month}-01`,
+          amount: matchingAllocation.amount,
+          category: transaction.category,
+          subCategory: transaction.subCategory,
+        });
+      }
+
+      continue;
+    }
+
+    if (getMonthKey(transaction.date) === selectedMonth) {
+      result.push(transaction);
+    }
+  }
+
+  return result;
+};
+
 const getMonthlyTotals = (
   transactions: Array<{
     date: string;
@@ -221,6 +312,40 @@ const getMonthlyTotals = (
     .sort((firstMonth, secondMonth) => {
       return firstMonth.month.localeCompare(secondMonth.month);
     });
+};
+
+const getAllocatedMonthlyTotals = (
+  months: string[],
+  transactions: Array<{
+    id?: number;
+    date: string;
+    amount: number;
+    category?: string;
+    subCategory?: string;
+  }>,
+  transactionAllocations: Array<{
+    transactionId: number;
+    month: string;
+    amount: number;
+  }>,
+) => {
+  return months.map((month) => {
+    const monthlyTransactions = getEffectiveMonthlySpendingTransactions(
+      transactions,
+      transactionAllocations,
+      month,
+    );
+
+    const total = monthlyTransactions.reduce((runningTotal, transaction) => {
+      return runningTotal + Math.abs(transaction.amount);
+    }, 0);
+
+    return {
+      month,
+      monthLabel: formatMonthLabel(month),
+      total: roundCurrency(total),
+    };
+  });
 };
 
 const getAvailableMonths = (
@@ -264,13 +389,72 @@ const groupSmallCategories = (
   return [...largeCategories, { name: "Other", total: otherTotal }];
 };
 
+const getSubCategoryBudgetStatuses = (
+  budgets: BudgetRecord[],
+  transactions: Array<{
+    amount: number;
+    category?: string;
+    subCategory?: string;
+  }>,
+) => {
+  return budgets
+    .filter((budget) => {
+      return Boolean(budget.subCategoryName);
+    })
+    .map((budget) => {
+      const actual = roundCurrency(
+        transactions
+          .filter((transaction) => {
+            return (
+              transaction.category === budget.categoryName &&
+              transaction.subCategory === budget.subCategoryName
+            );
+          })
+          .reduce((runningTotal, transaction) => {
+            return runningTotal + Math.abs(transaction.amount);
+          }, 0),
+      );
+
+      const remaining = roundCurrency(budget.amount - actual);
+
+      return {
+        categoryName: budget.categoryName,
+        subCategoryName: budget.subCategoryName ?? "",
+        budget: budget.amount,
+        actual,
+        remaining,
+        isOverBudget: remaining < 0,
+      };
+    })
+    .sort((firstBudget, secondBudget) => {
+      const categoryComparison = firstBudget.categoryName.localeCompare(
+        secondBudget.categoryName,
+      );
+
+      if (categoryComparison !== 0) {
+        return categoryComparison;
+      }
+
+      return firstBudget.subCategoryName.localeCompare(
+        secondBudget.subCategoryName,
+      );
+    });
+};
+
 export const DashboardPage = () => {
   const [selectedMonthIndex, setSelectedMonthIndex] = useState<number | null>(
     null,
   );
+  const [budgetViewMode, setBudgetViewMode] = useState<
+    "category" | "subCategory"
+  >("category");
 
   const transactions = useLiveQuery(async () => {
     return db.transactions.toArray();
+  }, []);
+
+  const transactionAllocations = useLiveQuery(async () => {
+    return db.transactionAllocations.toArray();
   }, []);
 
   const budgets = useLiveQuery(async () => {
@@ -328,45 +512,74 @@ export const DashboardPage = () => {
   const selectedMonth =
     dashboardData.availableMonths[normalizedSelectedMonthIndex] ?? "";
 
-  const monthlySpendingTransactions = dashboardData.spendingTransactions.filter(
-    (transaction) => {
-      if (!selectedMonth) {
-        return true;
-      }
-
+  const grossMonthlySpendingTransactions =
+    dashboardData.spendingTransactions.filter((transaction) => {
       return getMonthKey(transaction.date) === selectedMonth;
-    },
+    });
+
+  const allocatedMonthlySpendingTransactions =
+    getEffectiveMonthlySpendingTransactions(
+      dashboardData.spendingTransactions,
+      transactionAllocations ?? [],
+      selectedMonth,
+    );
+
+  const allocatedMonthlyTotals = getAllocatedMonthlyTotals(
+    dashboardData.availableMonths,
+    dashboardData.spendingTransactions,
+    transactionAllocations ?? [],
   );
 
-  const monthlyCategoryTotals = groupSmallCategories(
-    getCategoryTotals(monthlySpendingTransactions),
+  const grossMonthlyCategoryTotals = groupSmallCategories(
+    getCategoryTotals(grossMonthlySpendingTransactions),
   );
 
-  const monthlySubCategoryTotalsByCategory = getSubCategoryTotalsByCategory(
-    monthlySpendingTransactions,
+  const allocatedMonthlyCategoryTotals = groupSmallCategories(
+    getCategoryTotals(allocatedMonthlySpendingTransactions),
   );
+
+  const grossMonthlySubCategoryTotalsByCategory =
+    getSubCategoryTotalsByCategory(grossMonthlySpendingTransactions);
+
+  const allocatedMonthlySubCategoryTotalsByCategory =
+    getSubCategoryTotalsByCategory(allocatedMonthlySpendingTransactions);
 
   const budgetRecords = budgets ?? [];
+
   const monthlyTotalSpending = roundCurrency(
-    monthlySpendingTransactions.reduce((runningTotal, transaction) => {
+    allocatedMonthlySpendingTransactions.reduce((runningTotal, transaction) => {
       return runningTotal + transaction.amount;
     }, 0),
   );
+
   const monthlyTotalBudget = roundCurrency(
     budgetRecords.reduce((runningTotal, budget) => {
       return runningTotal + budget.amount;
     }, 0),
   );
+
   const monthlyIncomeRemaining = roundCurrency(
     MONTHLY_INCOME - monthlyTotalSpending,
   );
+
   const monthlyBudgetRemaining = roundCurrency(
     monthlyTotalBudget - monthlyTotalSpending,
   );
-  const monthlyBudgetStatuses = getBudgetStatuses(
+
+  const categoryBudgetStatuses = getBudgetStatuses(
     budgetRecords,
-    monthlySpendingTransactions,
+    allocatedMonthlySpendingTransactions,
   );
+
+  const subCategoryBudgetStatuses = getSubCategoryBudgetStatuses(
+    budgetRecords,
+    allocatedMonthlySpendingTransactions,
+  );
+
+  const monthlyBudgetStatuses =
+    budgetViewMode === "category"
+      ? categoryBudgetStatuses
+      : subCategoryBudgetStatuses;
 
   const handlePreviousMonth = () => {
     setSelectedMonthIndex((currentIndex) => {
@@ -399,15 +612,18 @@ export const DashboardPage = () => {
     subCategoryTotals,
   }: {
     active?: boolean;
-    payload?: Array<{ name: string; value: number }>;
+    payload?: ReadonlyArray<{
+      name?: string;
+      value?: number;
+    }>;
     subCategoryTotals: Record<string, Array<{ name: string; total: number }>>;
   }) => {
     if (!active || !payload || !payload.length) {
       return null;
     }
 
-    const categoryName = payload[0].name;
-    const value = payload[0].value;
+    const categoryName = payload[0]?.name ?? "Unknown";
+    const value = Number(payload[0]?.value ?? 0);
 
     if (categoryName === "Other") {
       return (
@@ -460,6 +676,117 @@ export const DashboardPage = () => {
     );
   };
 
+  const renderCategoryPieChart = (
+    title: string,
+    categoryTotals: Array<{ name: string; total: number }>,
+    subCategoryTotals: Record<string, Array<{ name: string; total: number }>>,
+  ) => {
+    return (
+      <Paper sx={{ padding: 3, height: 500, paddingBottom: 5 }}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "auto 1fr auto",
+            alignItems: "center",
+            gap: 2,
+            marginBottom: 2,
+          }}
+        >
+          <Button
+            variant="outlined"
+            onClick={handlePreviousMonth}
+            disabled={normalizedSelectedMonthIndex <= 0}
+          >
+            ◀ Previous
+          </Button>
+
+          <Typography variant="h5" align="center">
+            {title} —{" "}
+            {selectedMonth ? formatMonthLabel(selectedMonth) : "No Data"}
+          </Typography>
+
+          <Button
+            variant="outlined"
+            onClick={handleNextMonth}
+            disabled={
+              normalizedSelectedMonthIndex >=
+              dashboardData.availableMonths.length - 1
+            }
+          >
+            Next ▶
+          </Button>
+        </Box>
+
+        <ResponsiveContainer width="100%" height="70%">
+          <PieChart margin={{ top: 40, right: 30, bottom: 0, left: 30 }}>
+            <Pie
+              data={categoryTotals}
+              dataKey="total"
+              nameKey="name"
+              outerRadius={130}
+              label={({ name, value }) =>
+                `${name} ${formatCompactCurrency(Number(value))}`
+              }
+              labelLine
+            >
+              {categoryTotals.map((categoryTotal, categoryIndex) => (
+                <Cell
+                  key={categoryTotal.name}
+                  fill={PIE_COLORS[categoryIndex % PIE_COLORS.length]}
+                />
+              ))}
+            </Pie>
+            <Tooltip
+              content={(props) => (
+                <CustomPieTooltip
+                  {...props}
+                  subCategoryTotals={subCategoryTotals}
+                />
+              )}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+      </Paper>
+    );
+  };
+
+  const renderMonthlyBarChart = (
+    title: string,
+    monthlyTotals: Array<{ month: string; monthLabel: string; total: number }>,
+  ) => {
+    return (
+      <Paper sx={{ padding: 3, height: 500, paddingBottom: 5 }}>
+        <Typography variant="h6" gutterBottom>
+          {title}
+        </Typography>
+
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={monthlyTotals}>
+            <XAxis dataKey="monthLabel" />
+            <YAxis
+              tickFormatter={(value) => {
+                return `$${roundCurrency(Number(value)).toFixed(0)}`;
+              }}
+            />
+            <Tooltip
+              formatter={(value) => {
+                return formatCurrency(Number(value ?? 0));
+              }}
+            />
+            <Bar dataKey="total">
+              {monthlyTotals.map((monthlyTotal, monthIndex) => (
+                <Cell
+                  key={monthlyTotal.month}
+                  fill={BAR_COLORS[monthIndex % BAR_COLORS.length]}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </Paper>
+    );
+  };
+
   return (
     <Box sx={{ padding: 4 }}>
       <Typography variant="h4" gutterBottom align="center">
@@ -490,7 +817,7 @@ export const DashboardPage = () => {
 
         <Paper sx={cardStyles}>
           <Typography variant="h6" gutterBottom>
-            Monthly Spending
+            Allocated Monthly Spending
           </Typography>
           <Typography variant="h4">
             {formatCurrency(monthlyTotalSpending)}
@@ -531,7 +858,7 @@ export const DashboardPage = () => {
       >
         <Paper sx={cardStyles}>
           <Typography variant="h6" gutterBottom>
-            Total Spending
+            Gross Total Spending
           </Typography>
           <Typography variant="h4">
             {formatCurrency(dashboardData.totalSpending)}
@@ -557,46 +884,28 @@ export const DashboardPage = () => {
         </Paper>
       </Box>
 
-      <Paper
+      <Box
         sx={{
-          padding: 3,
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 3,
           maxWidth: 1200,
           marginLeft: "auto",
           marginRight: "auto",
           marginBottom: 4,
         }}
       >
-        <Typography variant="h6" gutterBottom>
-          Budget by Category
-        </Typography>
+        {renderCategoryPieChart(
+          "Gross Spending by Category",
+          grossMonthlyCategoryTotals,
+          grossMonthlySubCategoryTotalsByCategory,
+        )}
 
-        {monthlyBudgetStatuses.map((budgetStatus) => (
-          <Box
-            key={budgetStatus.categoryName}
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "1fr repeat(3, 120px)",
-              gap: 2,
-              paddingTop: 1,
-              paddingBottom: 1,
-              borderBottom: "1px solid #eee",
-            }}
-          >
-            <Typography>{budgetStatus.categoryName}</Typography>
-            <Typography align="right">
-              {formatCurrency(budgetStatus.actual)}
-            </Typography>
-            <Typography align="right">
-              {formatCurrency(budgetStatus.budget)}
-            </Typography>
-            <Typography align="right" color={budgetStatus.isOverBudget ? "error" : "text.primary"}>
-              {budgetStatus.isOverBudget
-                ? `${formatCurrency(Math.abs(budgetStatus.remaining))} over`
-                : `${formatCurrency(budgetStatus.remaining)} left`}
-            </Typography>
-          </Box>
-        ))}
-      </Paper>
+        {renderMonthlyBarChart(
+          "Gross Monthly Spending",
+          dashboardData.monthlyTotals,
+        )}
+      </Box>
 
       <Box
         sx={{
@@ -608,102 +917,115 @@ export const DashboardPage = () => {
           marginRight: "auto",
         }}
       >
-        <Paper sx={{ padding: 3, height: 500, paddingBottom: 5 }}>
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "auto 1fr auto",
-              alignItems: "center",
-              gap: 2,
-              marginBottom: 2,
-            }}
-          >
-            <Button
-              variant="outlined"
-              onClick={handlePreviousMonth}
-              disabled={normalizedSelectedMonthIndex <= 0}
-            >
-              ◀ Previous
-            </Button>
+        {renderCategoryPieChart(
+          "Allocated Spending by Category",
+          allocatedMonthlyCategoryTotals,
+          allocatedMonthlySubCategoryTotalsByCategory,
+        )}
 
-            <Typography variant="h5" align="center">
-              Spending by Category —{" "}
-              {selectedMonth ? formatMonthLabel(selectedMonth) : "No Data"}
-            </Typography>
+        {renderMonthlyBarChart(
+          "Allocated Monthly Spending",
+          allocatedMonthlyTotals,
+        )}
+      </Box>
 
-            <Button
-              variant="outlined"
-              onClick={handleNextMonth}
-              disabled={
-                normalizedSelectedMonthIndex >=
-                dashboardData.availableMonths.length - 1
-              }
-            >
-              Next ▶
-            </Button>
-          </Box>
-
-          <ResponsiveContainer width="100%" height="70%">
-            <PieChart margin={{ top: 40, right: 30, bottom: 0, left: 30 }}>
-              <Pie
-                data={monthlyCategoryTotals}
-                dataKey="total"
-                nameKey="name"
-                outerRadius={130}
-                label={({ name, value }) =>
-                  `${name} ${formatCompactCurrency(Number(value))}`
-                }
-                labelLine
-              >
-                {monthlyCategoryTotals.map((categoryTotal, categoryIndex) => (
-                  <Cell
-                    key={categoryTotal.name}
-                    fill={PIE_COLORS[categoryIndex % PIE_COLORS.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip
-                content={(props) => (
-                  <CustomPieTooltip
-                    {...props}
-                    subCategoryTotals={monthlySubCategoryTotalsByCategory}
-                  />
-                )}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </Paper>
-
-        <Paper sx={{ padding: 3, height: 500, paddingBottom: 5 }}>
-          <Typography variant="h6" gutterBottom>
-            Monthly Spending
+      <Paper
+        sx={{
+          padding: 3,
+          maxWidth: 1200,
+          marginLeft: "auto",
+          marginRight: "auto",
+          marginY: 4,
+        }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 2,
+          }}
+        >
+          <Typography variant="h6">
+            {budgetViewMode === "category"
+              ? "Budget by Category"
+              : "Budget by Sub-category"}
           </Typography>
 
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dashboardData.monthlyTotals}>
-              <XAxis dataKey="monthLabel" />
-              <YAxis
-                tickFormatter={(value) => {
-                  return `$${roundCurrency(Number(value)).toFixed(0)}`;
-                }}
-              />
-              <Tooltip
-                formatter={(value) => {
-                  return formatCurrency(Number(value ?? 0));
-                }}
-              />
-              <Bar dataKey="total">
-                {dashboardData.monthlyTotals.map((monthlyTotal, monthIndex) => (
-                  <Cell
-                    key={monthlyTotal.month}
-                    fill={BAR_COLORS[monthIndex % BAR_COLORS.length]}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </Paper>
-      </Box>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={budgetViewMode}
+            onChange={(_, nextViewMode: "category" | "subCategory" | null) => {
+              if (!nextViewMode) {
+                return;
+              }
+
+              setBudgetViewMode(nextViewMode);
+            }}
+          >
+            <ToggleButton value="category">Category</ToggleButton>
+            <ToggleButton value="subCategory">Sub-category</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
+
+        {monthlyBudgetStatuses.map((budgetStatus) => (
+          <Box
+            key={`${budgetStatus.categoryName}-${budgetStatus.subCategoryName ?? ""}`}
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "1fr repeat(3, 120px)",
+              gap: 2,
+              paddingTop: 1,
+              paddingBottom: 1,
+              borderBottom: "1px solid #eee",
+            }}
+          >
+            <Typography>
+              {budgetViewMode === "category"
+                ? budgetStatus.categoryName
+                : `${budgetStatus.categoryName} / ${budgetStatus.subCategoryName}`}
+            </Typography>
+            <Typography align="right">
+              {formatCurrency(budgetStatus.actual)}
+            </Typography>
+            <Typography align="right">
+              {formatCurrency(budgetStatus.budget)}
+            </Typography>
+            <Typography
+              align="right"
+              whiteSpace="nowrap"
+              color={budgetStatus.isOverBudget ? "error" : "text.primary"}
+            >
+              {budgetStatus.isOverBudget
+                ? `${formatCurrency(Math.abs(budgetStatus.remaining))} over`
+                : `${formatCurrency(budgetStatus.remaining)} left`}
+            </Typography>
+          </Box>
+        ))}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "1fr repeat(3, 120px)",
+            gap: 2,
+            paddingTop: 2,
+            fontWeight: "bold",
+          }}
+        >
+          <Typography fontWeight="bold">Total</Typography>
+          <Typography align="right" fontWeight="bold">
+            {formatCurrency(monthlyTotalSpending)}
+          </Typography>
+          <Typography align="right" fontWeight="bold">
+            {formatCurrency(monthlyTotalBudget)}
+          </Typography>
+          <Typography align="right" fontWeight="bold" whiteSpace="nowrap">
+            {monthlyBudgetRemaining < 0
+              ? `${formatCurrency(Math.abs(monthlyBudgetRemaining))} over`
+              : `${formatCurrency(monthlyBudgetRemaining)} left`}
+          </Typography>
+        </Box>
+      </Paper>
     </Box>
   );
 };

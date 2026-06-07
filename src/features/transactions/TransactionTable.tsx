@@ -1,6 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 
 import {
+  Box,
   Button,
   Dialog,
   DialogActions,
@@ -19,6 +20,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -27,6 +30,8 @@ import { CategorySelect, NotesInput } from "../../components";
 import { db } from "../../db/db";
 import { Transaction } from "./types";
 import { useState } from "react";
+import { SplitTransactionDialog } from "./split-transaction-dialog";
+import { DateTime } from "luxon";
 
 type TransactionTableProps = {
   title: string;
@@ -52,6 +57,9 @@ export const TransactionTable = (props: TransactionTableProps) => {
     categoryName: string;
     subCategoryName?: string;
   } | null>(null);
+  const [splitTransaction, setSplitTransaction] = useState<Transaction | null>(
+    null,
+  );
 
   const subCategories = useLiveQuery(async () => {
     return db.subCategories.toArray();
@@ -87,7 +95,6 @@ export const TransactionTable = (props: TransactionTableProps) => {
 
     await db.transactions.update(transactionId, {
       category: newCategory,
-      subCategory: "",
     });
 
     setPendingRule({
@@ -123,6 +130,46 @@ export const TransactionTable = (props: TransactionTableProps) => {
       subCategoryName: newSubCategory,
     });
   };
+
+  const handleSplitTransaction = async (
+    transaction: Transaction,
+    numberOfMonths: number,
+  ) => {
+    const transactionId = transaction.id;
+
+    if (!transactionId) {
+      return;
+    }
+
+    await db.transactionAllocations
+      .where("transactionId")
+      .equals(transactionId)
+      .delete();
+
+    const monthlyAmount = transaction.amount / numberOfMonths;
+
+    const transactionMonth = DateTime.fromISO(transaction.date).startOf(
+      "month",
+    );
+
+    const allocations = Array.from(
+      { length: numberOfMonths },
+      (_, monthIndex) => {
+        return {
+          transactionId,
+          month: transactionMonth
+            .plus({ months: monthIndex })
+            .toFormat("yyyy-MM"),
+          amount: monthlyAmount,
+        };
+      },
+    );
+
+    await db.transactionAllocations.bulkAdd(allocations);
+
+    setSplitTransaction(null);
+  };
+
   const handleDelete = async (transactionId: number | undefined) => {
     if (!transactionId) {
       return;
@@ -173,6 +220,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
               <TableCell align="right">Amount</TableCell>
               <TableCell>Category</TableCell>
               <TableCell>Sub-category</TableCell>
+              <TableCell align="center">Split</TableCell>
               <TableCell>Notes</TableCell>
               <TableCell align="center">Delete</TableCell>
             </TableRow>
@@ -238,7 +286,17 @@ export const TransactionTable = (props: TransactionTableProps) => {
                     )}
                   </Select>
                 </TableCell>
-
+                <TableCell align="center">
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => {
+                      setSplitTransaction(transaction);
+                    }}
+                  >
+                    Split
+                  </Button>
+                </TableCell>
                 <TableCell>
                   <NotesInput
                     value={transaction.notes}
@@ -370,6 +428,18 @@ export const TransactionTable = (props: TransactionTableProps) => {
           </Button>
         </DialogActions>
       </Dialog>
+      {splitTransaction ? (
+        <SplitTransactionDialog
+          amount={splitTransaction.amount}
+          open={Boolean(splitTransaction)}
+          onClose={() => {
+            setSplitTransaction(null);
+          }}
+          onSave={async (numberOfMonths) => {
+            await handleSplitTransaction(splitTransaction, numberOfMonths);
+          }}
+        />
+      ) : null}
     </>
   );
 };
