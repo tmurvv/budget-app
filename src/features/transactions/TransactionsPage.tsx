@@ -13,7 +13,7 @@ export const TransactionsPage = () => {
   const [searchText, setSearchText] = useState("");
 
   const transactions = useLiveQuery(async () => {
-    const startDate = DateTime.now().minus({ days: 60 }).startOf("day").toISO();
+    const startDate = DateTime.now().minus({ days: 120 }).startOf("day").toISO();
 
     return db.transactions
       .where("date")

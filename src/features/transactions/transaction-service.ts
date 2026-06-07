@@ -13,9 +13,9 @@ type ImportTransactionsResult = {
   notPostedTransactions: Transaction[];
 };
 
-type BankCode = "MAN" | "RBC";
+type BankCode = "MAN" | "RBC" | "ONE";
 
-type BankFormat = "rewardsCard" | "alternateBank";
+type BankFormat = "rewardsCard" | "alternateBank" | "manulifeOne";
 
 type BankFormatConfig = {
   bank: BankCode;
@@ -24,13 +24,44 @@ type BankFormatConfig = {
   supportsPostedDate: boolean;
 };
 
+type RawCsvRow = string[];
+
 const parseCsvFile = async (file: File) => {
   return new Promise<CsvRow[]>((resolve, reject) => {
-    Papa.parse<CsvRow>(file, {
-      header: true,
+    Papa.parse<RawCsvRow>(file, {
+      header: false,
       skipEmptyLines: true,
       complete: (results) => {
-        resolve(results.data);
+        const rows = results.data;
+
+        const firstRow = rows[0] ?? [];
+
+        const isManulifeOne = firstRow[0]?.startsWith("Manulife One Account");
+
+        if (isManulifeOne) {
+          resolve(
+            rows.map((row) => ({
+              Account: row[0],
+              Date: row[1],
+              Amount: row[2],
+              Description: row[3],
+            })),
+          );
+
+          return;
+        }
+
+        const headers = firstRow;
+
+        resolve(
+          rows.slice(1).map((row) => {
+            return headers.reduce<CsvRow>((result, header, index) => {
+              result[header] = row[index];
+
+              return result;
+            }, {});
+          }),
+        );
       },
       error: (error) => {
         reject(error);
@@ -97,6 +128,21 @@ const createTransactionFingerprint = (params: {
 
 const detectBankFormat = (row: CsvRow): BankFormatConfig => {
   const rowKeys = Object.keys(row);
+
+  const hasManulifeOneShape =
+    rowKeys.includes("Account") &&
+    rowKeys.includes("Date") &&
+    rowKeys.includes("Amount") &&
+    rowKeys.includes("Description");
+
+  if (hasManulifeOneShape) {
+    return {
+      bank: "ONE",
+      bankFormat: "manulifeOne",
+      supportsPoints: false,
+      supportsPostedDate: false,
+    };
+  }
 
   const hasManShape =
       rowKeys.includes("Posted Date") ||
@@ -182,7 +228,38 @@ const normalizeManTransaction = (
     raw: row,
   };
 };
+const normalizeManulifeOneTransaction = (
+  row: CsvRow,
+  bankFormatConfig: BankFormatConfig,
+): Transaction => {
+  const date = normalizeDate(getFirstValue(row, ["Date"]));
 
+  const parsedAmount = parseRawAmount(getFirstValue(row, ["Amount"]));
+
+  const amount = parsedAmount * -1;
+
+  const description = getFirstValue(row, ["Description"]);
+
+  if (!description) {
+    throw new Error("Missing description");
+  }
+
+  const fingerprint = createTransactionFingerprint({
+    bank: bankFormatConfig.bank,
+    date,
+    amount,
+    description,
+  });
+
+  return {
+    bank: bankFormatConfig.bank,
+    date,
+    amount,
+    description,
+    fingerprint,
+    raw: row,
+  };
+};
 const normalizeRbcTransaction = (
     row: CsvRow,
     bankFormatConfig: BankFormatConfig,
@@ -232,11 +309,15 @@ const normalizeRbcTransaction = (
 };
 
 const normalizeTransactionForBank = (
-    row: CsvRow,
-    bankFormatConfig: BankFormatConfig,
+  row: CsvRow,
+  bankFormatConfig: BankFormatConfig,
 ) => {
   if (bankFormatConfig.bankFormat === "rewardsCard") {
     return normalizeManTransaction(row, bankFormatConfig);
+  }
+
+  if (bankFormatConfig.bankFormat === "manulifeOne") {
+    return normalizeManulifeOneTransaction(row, bankFormatConfig);
   }
 
   return normalizeRbcTransaction(row, bankFormatConfig);

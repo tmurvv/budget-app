@@ -237,7 +237,11 @@ export const TransactionTable = (props: TransactionTableProps) => {
                 <TableCell>{formatDate(transaction.date)}</TableCell>
 
                 <TableCell sx={{ whiteSpace: "nowrap" }}>
-                  {transaction.bank === "RBC" ? "🔵 RBC" : "🟢 MAN"}
+                  {transaction.bank === "RBC"
+                    ? "🔵 RBC"
+                    : transaction.bank === "ONE"
+                      ? "🟣 ONE"
+                      : "🟢 MAN"}
                 </TableCell>
 
                 <TableCell>{transaction.description}</TableCell>
