@@ -1,16 +1,146 @@
-# React + Vite
+# Budget App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Personal budgeting and transaction categorization application built with React, TypeScript, and MongoDB.
 
-Currently, two official plugins are available:
+The application supports:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+* CSV transaction imports from multiple financial institutions
+* Automatic categorization using configurable rules
+* Manual transaction management
+* Split transaction allocation across months
+* Budget tracking and reporting
+* Local-first development using MongoDB
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## tl;dr
 
-## Expanding the ESLint configuration
+Start Mongo locally:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+docker run -d \
+  --name mongo-budget \
+  -p 27017:27017 \
+  mongo:latest
+```
+
+Start the UI:
+
+```bash
+pnpm dev
+```
+
+The UI runs on:
+
+```txt
+http://localhost:43210
+```
+
+Mongo database:
+
+```txt
+budget-app
+```
+
+App structure:
+
+```txt
+apps/
+  ui/   React + Vite frontend
+  api/  Node + Express API
+```
+
+---
+
+## Project Structure
+
+```txt
+budget-app/
+  apps/
+    ui/
+      src/
+      public/
+    api/
+```
+
+### UI (`apps/ui`)
+
+The frontend application for:
+
+* importing transactions
+* categorizing spending
+* managing budgets
+* reviewing historical spending
+* transaction splitting and allocation
+
+Technology:
+
+* React
+* TypeScript
+* Vite
+* MUI
+* Luxon
+
+### API (`apps/api`)
+
+Backend API responsible for:
+
+* MongoDB persistence
+* transaction import processing
+* rule evaluation
+* budgeting data access
+* migration from IndexedDB
+
+Technology:
+
+* Node.js
+* Express
+* TypeScript
+* MongoDB
+* Zod
+
+---
+
+## Data Storage
+
+Mongo database:
+
+```txt
+budget-app
+```
+
+Planned collections:
+
+```txt
+transactions
+transactionAllocations
+categoryRules
+categories
+subCategories
+budgets
+```
+
+The application uses a stable `id` property for application identity and does not depend on Mongo `_id` values.
+
+---
+
+## Development Philosophy
+
+This application favors:
+
+* simple local development
+* explicit typing
+* minimal infrastructure
+* fast iteration
+* strong TypeScript safety
+* idempotent imports using transaction fingerprints
+
+---
+
+## Future Work
+
+* Mongo-backed persistence
+* IndexedDB migration tooling
+* API-driven synchronization
+* reporting improvements
+* budgeting enhancements
