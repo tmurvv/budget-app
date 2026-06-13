@@ -3,7 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { DateTime } from "luxon";
 import { Box, FormControlLabel, Switch, Typography } from "@mui/material";
 
-import { db } from "../../db/db";
+import { getTransactions } from "../../api/budget-api-client";
 import { CategorySelect, SearchInput } from "../../components";
 import { TransactionTable } from "./TransactionTable";
 
@@ -13,14 +13,20 @@ export const TransactionsPage = () => {
   const [searchText, setSearchText] = useState("");
 
   const transactions = useLiveQuery(async () => {
-    const startDate = DateTime.now().minus({ days: 120 }).startOf("day").toISO();
+    console.time("getTransactions");
 
-    return db.transactions
-      .where("date")
-      .aboveOrEqual(startDate)
-      .reverse()
-      .sortBy("date");
+    const allTransactions = await getTransactions();
+    console.log("after all");
+
+    console.timeEnd("getTransactions");
+
+    const startDate = DateTime.now().minus({ days: 90 }).startOf("day").toISO();
+
+    return allTransactions.filter((transaction) => {
+      return transaction.date >= startDate;
+    });
   }, []);
+
   const filteredTransactions = (transactions ?? []).filter((transaction) => {
     const normalizedDescription = transaction.description.toLowerCase().trim();
     const normalizedNotes = (transaction.notes ?? "").toLowerCase().trim();

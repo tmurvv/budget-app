@@ -46,6 +46,10 @@ export const CategorySelect = (props: CategorySelectProps) => {
 
     const labelId = `${label.toLowerCase().replaceAll(" ", "-")}-label`;
 
+  if (!categories) {
+    return null;
+  }
+
     return (
         <FormControl sx={{ minWidth }}>
             <InputLabel
@@ -72,7 +76,7 @@ export const CategorySelect = (props: CategorySelectProps) => {
 
                 <MenuItem value="No Category">No Category</MenuItem>
 
-                {(categories ?? []).map((category) => (
+                {(categories).map((category) => (
                     <MenuItem key={category.id} value={category.name}>
                         {category.name}
                     </MenuItem>

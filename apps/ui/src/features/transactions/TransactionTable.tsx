@@ -58,6 +58,10 @@ const getBankDisplay = (bank: Transaction["bank"]) => {
   return bankDisplayMap[bank];
 };
 
+const getDisplayValue = (value: string | undefined) => {
+  return value?.trim() ? value : "Unassigned";
+};
+
 export const TransactionTable = (props: TransactionTableProps) => {
   const { title, transactions } = props;
   const [pendingRule, setPendingRule] = useState<{
@@ -95,58 +99,6 @@ export const TransactionTable = (props: TransactionTableProps) => {
     }, rules[0].priority);
 
     return lowestPriority - 1;
-  };
-
-  const handleCategoryChange = async (
-    transactionId: number | undefined,
-    newCategory: string,
-  ) => {
-    if (!transactionId) {
-      return;
-    }
-
-    const transaction = await db.transactions.get(transactionId);
-
-    if (!transaction) {
-      return;
-    }
-
-    await db.transactions.update(transactionId, {
-      category: newCategory,
-    });
-
-    setPendingRule({
-      transactionId,
-      matchValue: transaction.description,
-      categoryName: newCategory,
-      subCategoryName: "",
-    });
-  };
-
-  const handleSubCategoryChange = async (
-    transactionId: number | undefined,
-    newSubCategory: string,
-  ) => {
-    if (!transactionId) {
-      return;
-    }
-
-    const transaction = await db.transactions.get(transactionId);
-
-    if (!transaction) {
-      return;
-    }
-
-    await db.transactions.update(transactionId, {
-      subCategory: newSubCategory,
-    });
-
-    setPendingRule({
-      transactionId,
-      matchValue: transaction.description,
-      categoryName: transaction.category ?? "",
-      subCategoryName: newSubCategory,
-    });
   };
 
   const handleSplitTransaction = async (
@@ -283,7 +235,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
           {title}
         </Typography>
 
-        <Table size={"small"}>
+        <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell>Date</TableCell>
@@ -303,7 +255,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
             {transactions.map((transaction, transactionIndex) => (
               <TableRow
                 key={
-                  transaction.fingerprint ??
+                  transaction.fingerprint ||
                   `${transaction.date}-${transaction.description}-${transaction.amount}-${transactionIndex}`
                 }
               >
@@ -319,46 +271,12 @@ export const TransactionTable = (props: TransactionTableProps) => {
                   {formatCurrency(transaction.amount)}
                 </TableCell>
 
-                <TableCell>
-                  <CategorySelect
-                    label="Category"
-                    value={transaction.category ?? ""}
-                    minWidth={160}
-                    onChange={(newCategory) => {
-                      void handleCategoryChange(transaction.id, newCategory);
-                    }}
-                  />
-                </TableCell>
+                <TableCell>{getDisplayValue(transaction.category)}</TableCell>
 
                 <TableCell>
-                  <Select
-                    size="small"
-                    value={transaction.subCategory ?? ""}
-                    displayEmpty
-                    disabled={!transaction.category}
-                    onChange={(event) => {
-                      void handleSubCategoryChange(
-                        transaction.id,
-                        event.target.value as string,
-                      );
-                    }}
-                    sx={{ minWidth: 180 }}
-                  >
-                    <MenuItem value="">
-                      <em>Unassigned</em>
-                    </MenuItem>
-
-                    <MenuItem value="No Sub-category">No Sub-category</MenuItem>
-
-                    {getSubCategoryOptions(transaction.category).map(
-                      (subCategory) => (
-                        <MenuItem key={subCategory} value={subCategory}>
-                          {subCategory}
-                        </MenuItem>
-                      ),
-                    )}
-                  </Select>
+                  {getDisplayValue(transaction.subCategory)}
                 </TableCell>
+
                 <TableCell align="center">
                   <Button
                     size="small"
@@ -370,6 +288,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
                     Split
                   </Button>
                 </TableCell>
+
                 <TableCell>
                   <NotesInput
                     value={transaction.notes}
@@ -384,6 +303,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
                     }}
                   />
                 </TableCell>
+
                 <TableCell align="center">
                   <IconButton
                     color="primary"
@@ -394,6 +314,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
                     <EditIcon />
                   </IconButton>
                 </TableCell>
+
                 <TableCell align="center">
                   <IconButton
                     color="error"
@@ -409,6 +330,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
           </TableBody>
         </Table>
       </TableContainer>
+
       <Dialog
         open={Boolean(pendingRule)}
         onClose={() => {
@@ -510,6 +432,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
           </Button>
         </DialogActions>
       </Dialog>
+
       {splitTransaction ? (
         <SplitTransactionDialog
           amount={splitTransaction.amount}
@@ -522,6 +445,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
           }}
         />
       ) : null}
+
       <Dialog
         open={Boolean(editingTransaction)}
         onClose={() => {
@@ -625,6 +549,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
           </Button>
         </DialogActions>
       </Dialog>
+
       <Dialog
         open={isAddTransactionOpen}
         onClose={() => {

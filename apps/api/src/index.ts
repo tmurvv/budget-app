@@ -20,10 +20,45 @@ const startServer = async () => {
   const app = express();
 
   app.use(cors());
-  app.use(express.json());
+  app.use(
+    express.json({
+      limit: "10mb",
+    }),
+  );
 
   app.use("/health", healthRoute);
   app.use("/transactions", transactionsRoute);
+
+  app.post("/migration/import-indexed-db", async (request, response) => {
+    const transactions = Array.isArray(request.body?.transactions)
+      ? request.body.transactions
+      : [];
+
+    const db = await connectMongo();
+
+    const tableNames = [
+      "categories",
+      "subCategories",
+      "categoryRules",
+      "budgets",
+      "transactionAllocations",
+    ] as const;
+
+    for (const tableName of tableNames) {
+      const documents = Array.isArray(request.body?.[tableName])
+        ? request.body[tableName]
+        : [];
+
+      if (documents.length > 0) {
+        await db.collection(tableName).deleteMany({});
+        await db.collection(tableName).insertMany(documents);
+      }
+    }
+
+    response.json({
+      importedCount: transactions.length,
+    });
+  });
 
   app.listen(config.port, () => {
     console.log(`budget-api listening on port ${config.port}`);
