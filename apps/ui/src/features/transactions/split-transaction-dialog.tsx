@@ -42,8 +42,10 @@ export const SplitTransactionDialog = (props: SplitTransactionDialogProps) => {
             onChange={(event) => {
               setNumberOfMonths(event.target.value);
             }}
-            inputProps={{
-              min: 1,
+            slotProps={{
+              htmlInput: {
+                min: 1,
+              },
             }}
           />
 

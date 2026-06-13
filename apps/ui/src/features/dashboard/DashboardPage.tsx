@@ -7,7 +7,6 @@ import {
 } from "@mui/material";
 
 import {
-  formatCompactCurrency,
   formatCurrency,
   formatMonthLabel,
   getMonthKey,

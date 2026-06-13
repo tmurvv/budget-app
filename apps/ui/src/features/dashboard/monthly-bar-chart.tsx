@@ -2,7 +2,7 @@ import { Paper, Typography } from "@mui/material";
 import {
   Bar,
   BarChart,
-  Cell,
+  Rectangle,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -30,10 +30,21 @@ type MonthlyBarChartProps = {
   monthlyTotals: MonthlyTotal[];
 };
 
+const buildChartData = (monthlyTotals: MonthlyTotal[]) => {
+  return monthlyTotals.map((monthlyTotal, monthIndex) => {
+    return {
+      ...monthlyTotal,
+      fill: BAR_COLORS[monthIndex % BAR_COLORS.length],
+    };
+  });
+};
+
 export const MonthlyBarChart = ({
   title,
   monthlyTotals,
 }: MonthlyBarChartProps) => {
+  const chartData = buildChartData(monthlyTotals);
+
   return (
     <Paper sx={{ padding: 3, height: 500, paddingBottom: 5 }}>
       <Typography variant="h6" gutterBottom>
@@ -41,7 +52,7 @@ export const MonthlyBarChart = ({
       </Typography>
 
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={monthlyTotals}>
+        <BarChart data={chartData}>
           <XAxis dataKey="monthLabel" />
 
           <YAxis
@@ -56,14 +67,17 @@ export const MonthlyBarChart = ({
             }}
           />
 
-          <Bar dataKey="total">
-            {monthlyTotals.map((monthlyTotal, monthIndex) => (
-              <Cell
-                key={monthlyTotal.month}
-                fill={BAR_COLORS[monthIndex % BAR_COLORS.length]}
-              />
-            ))}
-          </Bar>
+          <Bar
+            dataKey="total"
+            shape={(props) => {
+              const fill =
+                typeof props.payload?.fill === "string"
+                  ? props.payload.fill
+                  : BAR_COLORS[0];
+
+              return <Rectangle {...props} fill={fill} />;
+            }}
+          />
         </BarChart>
       </ResponsiveContainer>
     </Paper>

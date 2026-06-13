@@ -1,5 +1,9 @@
 import { Box, Button, Paper, Typography } from "@mui/material";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { Pie, PieChart, ResponsiveContainer, Sector, Tooltip } from "recharts";
+import type {
+  NameType,
+  ValueType,
+} from "recharts/types/component/DefaultTooltipContent";
 
 import {
   formatCompactCurrency,
@@ -24,13 +28,26 @@ const PIE_COLORS = [
   "#14b8a6",
 ];
 
+type ChartCategoryTotal = CategoryTotal & {
+  fill: string;
+};
+
 type CustomPieTooltipProps = {
   active?: boolean;
   payload?: ReadonlyArray<{
-    name?: string;
-    value?: number;
+    name?: NameType;
+    value?: ValueType;
   }>;
   subCategoryTotals: SubCategoryTotalsByCategory;
+};
+
+const buildChartData = (categoryTotals: CategoryTotal[]) => {
+  return categoryTotals.map((categoryTotal, categoryIndex) => {
+    return {
+      ...categoryTotal,
+      fill: PIE_COLORS[categoryIndex % PIE_COLORS.length],
+    };
+  });
 };
 
 const CustomPieTooltip = ({
@@ -42,8 +59,7 @@ const CustomPieTooltip = ({
     return null;
   }
 
-  const categoryName = payload[0]?.name ?? "Unknown";
-
+  const categoryName = String(payload[0]?.name ?? "Unknown");
   const value = Number(payload[0]?.value ?? 0);
 
   if (categoryName === "Other") {
@@ -124,6 +140,8 @@ export const CategoryPieChart = ({
   onPreviousMonth,
   onNextMonth,
 }: CategoryPieChartProps) => {
+  const chartData = buildChartData(categoryTotals);
+
   return (
     <Paper
       sx={{
@@ -173,7 +191,7 @@ export const CategoryPieChart = ({
           }}
         >
           <Pie
-            data={categoryTotals}
+            data={chartData}
             dataKey="total"
             nameKey="name"
             outerRadius={130}
@@ -181,14 +199,11 @@ export const CategoryPieChart = ({
               `${name} ${formatCompactCurrency(Number(value))}`
             }
             labelLine
-          >
-            {categoryTotals.map((categoryTotal, categoryIndex) => (
-              <Cell
-                key={categoryTotal.name}
-                fill={PIE_COLORS[categoryIndex % PIE_COLORS.length]}
-              />
-            ))}
-          </Pie>
+            shape={(props) => {
+              const payload = props.payload as ChartCategoryTotal;
+              return <Sector {...props} fill={payload.fill} />;
+            }}
+          />
 
           <Tooltip
             content={(props) => (
