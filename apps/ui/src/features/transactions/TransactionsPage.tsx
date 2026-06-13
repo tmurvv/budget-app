@@ -11,6 +11,7 @@ export const TransactionsPage = () => {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [showUncategorizedOnly, setShowUncategorizedOnly] = useState(false);
   const [searchText, setSearchText] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const transactions = useLiveQuery(async () => {
     console.time("getTransactions");
@@ -20,12 +21,12 @@ export const TransactionsPage = () => {
 
     console.timeEnd("getTransactions");
 
-    const startDate = DateTime.now().minus({ days: 90 }).startOf("day").toISO();
+    const startDate = DateTime.now().minus({ days: 180 }).startOf("day").toISO();
 
     return allTransactions.filter((transaction) => {
       return transaction.date >= startDate;
     });
-  }, []);
+  }, [refreshKey]);
 
   const filteredTransactions = (transactions ?? []).filter((transaction) => {
     const normalizedDescription = transaction.description.toLowerCase().trim();
@@ -105,6 +106,11 @@ export const TransactionsPage = () => {
       <TransactionTable
         title="All Transactions"
         transactions={filteredTransactions}
+        onRefresh={() => {
+          setRefreshKey((currentRefreshKey) => {
+            return currentRefreshKey + 1;
+          });
+        }}
       />
     </Box>
   );

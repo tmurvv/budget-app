@@ -22,18 +22,25 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
-import { CategorySelect, NotesInput } from "../../components";
+import { NotesInput } from "../../components";
 import { db } from "../../db/db";
 import { Transaction } from "./types";
 import { useState } from "react";
 import { SplitTransactionDialog } from "./split-transaction-dialog";
 import { DateTime } from "luxon";
+import { AddTransactionDialog } from "./add-transaction-dialog";
+import {
+  deleteTransaction,
+  updateTransaction,
+} from "../../api/budget-api-client";
 
 type TransactionTableProps = {
   title: string;
   transactions: Transaction[];
+  onRefresh: () => void;
 };
 
 const formatCurrency = (amount: number) => {
@@ -44,7 +51,15 @@ const formatCurrency = (amount: number) => {
 };
 
 const formatDate = (date: string) => {
-  return new Date(date).toLocaleDateString();
+  if (!date) {
+    return "";
+  }
+
+  const dateOnly = date.includes("T") ? date.split("T")[0] : date;
+
+  const [year, month, day] = dateOnly.split("-");
+
+  return `${month}/${day}/${year}`;
 };
 
 const getBankDisplay = (bank: Transaction["bank"]) => {
@@ -63,7 +78,7 @@ const getDisplayValue = (value: string | undefined) => {
 };
 
 export const TransactionTable = (props: TransactionTableProps) => {
-  const { title, transactions } = props;
+  const { title, transactions, onRefresh } = props;
   const [pendingRule, setPendingRule] = useState<{
     transactionId: number;
     matchValue: string;
@@ -75,13 +90,6 @@ export const TransactionTable = (props: TransactionTableProps) => {
   );
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
-  const [manualTransaction, setManualTransaction] = useState({
-    date: new Date().toISOString().slice(0, 10),
-    description: "",
-    amount: "",
-    category: "",
-    subCategory: "",
-  });
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
   const subCategories = useLiveQuery(async () => {
     return db.subCategories.toArray();
@@ -140,47 +148,38 @@ export const TransactionTable = (props: TransactionTableProps) => {
     setSplitTransaction(null);
   };
 
-  const handleAddTransaction = async () => {
-    const amount = Number(manualTransaction.amount);
-
-    if (
-      !manualTransaction.date ||
-      !manualTransaction.description.trim() ||
-      Number.isNaN(amount)
-    ) {
+  const handleSaveEditedTransaction = async ({
+    editingTransaction,
+    onRefresh,
+    setEditingTransaction,
+  }: {
+    editingTransaction: Transaction | null;
+    onRefresh: () => void;
+    setEditingTransaction: (transaction: Transaction | null) => void;
+  }) => {
+    if (!editingTransaction?.id) {
       return;
     }
 
-    await db.transactions.add({
-      bank: "MRV",
-      date: new Date(manualTransaction.date).toISOString(),
-      amount,
-      description: manualTransaction.description.trim(),
-      category: manualTransaction.category,
-      fingerprint: "",
-      subCategory: manualTransaction.subCategory,
-      raw: {
-        source: "manual",
-      },
+    await updateTransaction(editingTransaction.id, {
+      date: editingTransaction.date,
+      description: editingTransaction.description,
+      amount: editingTransaction.amount,
     });
 
-    setManualTransaction({
-      date: new Date().toISOString().slice(0, 10),
-      description: "",
-      amount: "",
-      category: "",
-      subCategory: "",
-    });
+    setEditingTransaction(null);
 
-    setIsAddTransactionOpen(false);
+    onRefresh();
   };
 
   const handleDelete = async (transactionId: number | undefined) => {
+    console.log("Deleting transaction", transactionId);
     if (!transactionId) {
       return;
     }
 
-    await db.transactions.delete(transactionId);
+    await deleteTransaction(transactionId);
+    onRefresh();
   };
 
   const getSubCategoryOptions = (categoryName: string | undefined) => {
@@ -213,6 +212,9 @@ export const TransactionTable = (props: TransactionTableProps) => {
           marginTop: 2,
         }}
       >
+        <Button variant="text" onClick={onRefresh}>
+          <RefreshIcon />
+        </Button>
         <Button
           variant="contained"
           onClick={() => {
@@ -292,14 +294,16 @@ export const TransactionTable = (props: TransactionTableProps) => {
                 <TableCell>
                   <NotesInput
                     value={transaction.notes}
-                    onSave={(newNotes) => {
+                    onSave={async (newNotes) => {
                       if (!transaction.id) {
                         return;
                       }
 
-                      void db.transactions.update(transaction.id, {
+                      await updateTransaction(transaction.id, {
                         notes: newNotes,
                       });
+
+                      onRefresh();
                     }}
                   />
                 </TableCell>
@@ -531,145 +535,25 @@ export const TransactionTable = (props: TransactionTableProps) => {
 
           <Button
             variant="contained"
-            onClick={async () => {
-              if (!editingTransaction?.id) {
-                return;
-              }
-
-              await db.transactions.update(editingTransaction.id, {
-                date: editingTransaction.date,
-                description: editingTransaction.description,
-                amount: editingTransaction.amount,
+            onClick={() => {
+              void handleSaveEditedTransaction({
+                editingTransaction,
+                onRefresh,
+                setEditingTransaction,
               });
-
-              setEditingTransaction(null);
             }}
           >
             Save
           </Button>
         </DialogActions>
       </Dialog>
-
-      <Dialog
+      <AddTransactionDialog
         open={isAddTransactionOpen}
         onClose={() => {
           setIsAddTransactionOpen(false);
         }}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>Add Transaction</DialogTitle>
-
-        <DialogContent>
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Date"
-            type="date"
-            value={manualTransaction.date}
-            onChange={(event) => {
-              setManualTransaction({
-                ...manualTransaction,
-                date: event.target.value,
-              });
-            }}
-            slotProps={{
-              inputLabel: {
-                shrink: true,
-              },
-            }}
-          />
-
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Description"
-            value={manualTransaction.description}
-            onChange={(event) => {
-              setManualTransaction({
-                ...manualTransaction,
-                description: event.target.value,
-              });
-            }}
-          />
-
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Amount"
-            type="number"
-            value={manualTransaction.amount}
-            onChange={(event) => {
-              setManualTransaction({
-                ...manualTransaction,
-                amount: event.target.value,
-              });
-            }}
-          />
-
-          <CategorySelect
-            label="Category"
-            value={manualTransaction.category}
-            minWidth={160}
-            onChange={(newCategory) => {
-              setManualTransaction({
-                ...manualTransaction,
-                category: newCategory,
-                subCategory: "",
-              });
-            }}
-          />
-
-          <FormControl fullWidth margin="normal">
-            <InputLabel>Sub-category</InputLabel>
-
-            <Select
-              label="Sub-category"
-              value={manualTransaction.subCategory}
-              disabled={!manualTransaction.category}
-              onChange={(event) => {
-                setManualTransaction({
-                  ...manualTransaction,
-                  subCategory: event.target.value,
-                });
-              }}
-            >
-              <MenuItem value="">
-                <em>Unassigned</em>
-              </MenuItem>
-
-              <MenuItem value="No Sub-category">No Sub-category</MenuItem>
-
-              {getSubCategoryOptions(manualTransaction.category).map(
-                (subCategory) => (
-                  <MenuItem key={subCategory} value={subCategory}>
-                    {subCategory}
-                  </MenuItem>
-                ),
-              )}
-            </Select>
-          </FormControl>
-        </DialogContent>
-
-        <DialogActions>
-          <Button
-            onClick={() => {
-              setIsAddTransactionOpen(false);
-            }}
-          >
-            Cancel
-          </Button>
-
-          <Button
-            variant="contained"
-            onClick={() => {
-              void handleAddTransaction();
-            }}
-          >
-            Add
-          </Button>
-        </DialogActions>
-      </Dialog>
+        getSubCategoryOptions={getSubCategoryOptions}
+      />
     </>
   );
 };
