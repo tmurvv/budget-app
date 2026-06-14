@@ -8,7 +8,7 @@ export type Transaction = {
   category?: string;
   subCategory?: string;
   notes?: string;
-  raw?: Record<string, any>;
+  raw?: Record<string, unknown>;
 };
 
 export type TransactionAllocation = {

@@ -96,8 +96,6 @@ export const BudgetPage = () => {
     "category" | "subCategory"
   >("category");
   const [editableBudgets, setEditableBudgets] = useState<Budget[]>([]);
-
-  const [budgets, setBudgets] = useState<Budget[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
 
   useEffect(() => {
@@ -107,16 +105,12 @@ export const BudgetPage = () => {
         getSubCategories() as Promise<SubCategory[]>,
       ]);
 
-      setBudgets(loadedBudgets);
+      setEditableBudgets(loadedBudgets);
       setSubCategories(loadedSubCategories);
     };
 
     void loadBudgetData();
   }, []);
-
-  useEffect(() => {
-    setEditableBudgets(budgets ?? []);
-  }, [budgets]);
 
   const totalBudget = getCategoryBudgetTotals(editableBudgets).reduce(
     (runningTotal, budget) => {
