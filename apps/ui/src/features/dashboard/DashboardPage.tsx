@@ -141,6 +141,7 @@ export const DashboardPage = () => {
     dashboardData.availableMonths,
     dashboardData.spendingTransactions,
     transactionAllocations,
+    budgets,
   );
 
   const grossMonthlyCategoryTotals = groupSmallCategories(
@@ -365,6 +366,7 @@ export const DashboardPage = () => {
         <MonthlyBarChart
           title="Allocated Monthly Spending"
           monthlyTotals={allocatedMonthlyTotals}
+          showTargets
         />
       </Box>
       <BudgetStatusTable

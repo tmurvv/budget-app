@@ -235,6 +235,40 @@ export const getMonthlyTotals = (
     .sort((first, second) => first.month.localeCompare(second.month));
 };
 
+const getMonthlyBudgetTotal = (budgets: Budget[]) => {
+  return roundCurrency(
+    budgets.reduce((runningTotal, budget) => {
+      return runningTotal + budget.amount;
+    }, 0),
+  );
+};
+
+const getMonthProgressRatio = (month: string) => {
+  const today = new Date();
+  const [year, monthNumber] = month.split("-").map(Number);
+
+  const currentMonthKey = getMonthKey(today.toISOString());
+
+  if (month < currentMonthKey) {
+    return 1;
+  }
+
+  if (month > currentMonthKey) {
+    return 0;
+  }
+
+  const daysInMonth = new Date(year, monthNumber, 0).getDate();
+
+  return today.getDate() / daysInMonth;
+};
+
+const getProratedBudgetTotal = (budgets: Budget[], month: string) => {
+  const monthlyBudgetTotal = getMonthlyBudgetTotal(budgets);
+  const monthProgressRatio = getMonthProgressRatio(month);
+
+  return roundCurrency(monthlyBudgetTotal * monthProgressRatio);
+};
+
 export const getAllocatedMonthlyTotals = (
   months: string[],
   transactions: DashboardTransaction[],
@@ -243,6 +277,7 @@ export const getAllocatedMonthlyTotals = (
     month: string;
     amount: number;
   }>,
+  budgets: Budget[],
 ): MonthlyTotal[] => {
   return months.map((month) => {
     const monthlyTransactions = getEffectiveMonthlySpendingTransactions(
@@ -259,6 +294,7 @@ export const getAllocatedMonthlyTotals = (
       month,
       monthLabel: formatMonthLabel(month),
       total: roundCurrency(total),
+      targetTotal: getProratedBudgetTotal(budgets, month),
     };
   });
 };
