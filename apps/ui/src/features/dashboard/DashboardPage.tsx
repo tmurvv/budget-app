@@ -13,7 +13,11 @@ import {
   roundCurrency,
 } from "./dashboard-formatters";
 import { MonthlyBarChart } from "./monthly-bar-chart";
-import { db} from "../../db/db";
+import {
+  getBudgets,
+  getTransactionAllocations,
+  getTransactions,
+} from "../../api/budget-api-client";
 import { MONTHLY_INCOME } from "../budgeting/budget-values";
 import { CategoryPieChart } from "./category-pie-chart";
 import { BudgetStatusTable } from "./budget-status-table";
@@ -47,15 +51,15 @@ export const DashboardPage = () => {
   const [budgetViewMode, setBudgetViewMode] =
     useState<BudgetViewMode>("category");
   const transactions = useLiveQuery(async () => {
-    return db.transactions.toArray();
+    return getTransactions();
   }, []);
 
   const transactionAllocations = useLiveQuery(async () => {
-    return db.transactionAllocations.toArray();
+    return getTransactionAllocations();
   }, []);
 
   const budgets = useLiveQuery(async () => {
-    return db.budgets.toArray();
+    return getBudgets();
   }, []);
 
   const dashboardData = useMemo(() => {

@@ -49,5 +49,6 @@ export const INITIAL_BUDGETS = [
   { categoryName: "Household", subCategoryName: "Non-kitchen", amount: 40 },
 
   { categoryName: "Charity", subCategoryName: "Big House Cats", amount: 15 },
+  { categoryName: "Charity", subCategoryName: "Compassion Canada", amount: 15 },
   { categoryName: "Other", subCategoryName: "No Sub-category", amount: 25 },
 ] as const;

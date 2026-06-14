@@ -1,9 +1,10 @@
 import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "../../db/db";
+
+import { getRules } from "../../api/budget-api-client";
 
 export const ViewRules = () => {
   const rules = useLiveQuery(async () => {
-    return db.categoryRules.toArray();
+    return getRules();
   }, []);
 
   if (!rules || rules.length === 0) {
@@ -13,6 +14,7 @@ export const ViewRules = () => {
   return (
     <div style={{ marginTop: 20 }}>
       <h3>Category Rules</h3>
+
       {rules.map((rule) => (
         <div key={rule.id}>
           {rule.matchValue} → {rule.categoryName}

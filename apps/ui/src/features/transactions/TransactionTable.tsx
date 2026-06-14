@@ -25,8 +25,7 @@ import {
 import RefreshIcon from "@mui/icons-material/Refresh";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
-import { NotesInput } from "../../components";
-import { db } from "../../db/db";
+import { CategorySelect, NotesInput } from "../../components";
 import { Transaction } from "./types";
 import { useState } from "react";
 import { SplitTransactionDialog } from "./split-transaction-dialog";
@@ -34,6 +33,8 @@ import { DateTime } from "luxon";
 import { AddTransactionDialog } from "./add-transaction-dialog";
 import {
   deleteTransaction,
+  getSubCategories,
+  saveTransactionSplit,
   updateTransaction,
 } from "../../api/budget-api-client";
 
@@ -92,11 +93,11 @@ export const TransactionTable = (props: TransactionTableProps) => {
     useState<Transaction | null>(null);
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
   const subCategories = useLiveQuery(async () => {
-    return db.subCategories.toArray();
+    return getSubCategories();
   }, []);
 
   const getNextRulePriority = async () => {
-    const rules = await db.categoryRules.toArray();
+    const rules = await getRules();
 
     if (rules.length === 0) {
       return 100;
@@ -119,11 +120,6 @@ export const TransactionTable = (props: TransactionTableProps) => {
       return;
     }
 
-    await db.transactionAllocations
-      .where("transactionId")
-      .equals(transactionId)
-      .delete();
-
     const monthlyAmount = transaction.amount / numberOfMonths;
 
     const transactionMonth = DateTime.fromISO(transaction.date).startOf(
@@ -143,7 +139,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
       },
     );
 
-    await db.transactionAllocations.bulkAdd(allocations);
+    await saveTransactionSplit(transactionId, allocations);
 
     setSplitTransaction(null);
   };
@@ -165,6 +161,8 @@ export const TransactionTable = (props: TransactionTableProps) => {
       date: editingTransaction.date,
       description: editingTransaction.description,
       amount: editingTransaction.amount,
+      category: editingTransaction.category,
+      subCategory: editingTransaction.subCategory,
     });
 
     setEditingTransaction(null);
@@ -422,7 +420,8 @@ export const TransactionTable = (props: TransactionTableProps) => {
 
               const nextPriority = await getNextRulePriority();
 
-              await db.categoryRules.add({
+              await addRule({
+                id: crypto.randomUUID(),
                 matchValue: trimmedMatchValue,
                 categoryName: pendingRule.categoryName,
                 subCategoryName: pendingRule.subCategoryName?.trim() || "",
@@ -523,7 +522,58 @@ export const TransactionTable = (props: TransactionTableProps) => {
             }}
           />
         </DialogContent>
+        <Box px={3}>
+          <CategorySelect
+            label="Category"
+            value={editingTransaction?.category ?? ""}
+            minWidth={160}
+            onChange={(newCategory) => {
+              if (!editingTransaction) {
+                return;
+              }
 
+              setEditingTransaction({
+                ...editingTransaction,
+                category: newCategory,
+                subCategory: "",
+              });
+            }}
+          />
+
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Sub-category</InputLabel>
+
+            <Select
+              label="Sub-category"
+              value={editingTransaction?.subCategory ?? ""}
+              disabled={!editingTransaction?.category}
+              onChange={(event) => {
+                if (!editingTransaction) {
+                  return;
+                }
+
+                setEditingTransaction({
+                  ...editingTransaction,
+                  subCategory: event.target.value,
+                });
+              }}
+            >
+              <MenuItem value="">
+                <em>Unassigned</em>
+              </MenuItem>
+
+              <MenuItem value="No Sub-category">No Sub-category</MenuItem>
+
+              {getSubCategoryOptions(editingTransaction?.category).map(
+                (subCategory) => (
+                  <MenuItem key={subCategory} value={subCategory}>
+                    {subCategory}
+                  </MenuItem>
+                ),
+              )}
+            </Select>
+          </FormControl>
+        </Box>
         <DialogActions>
           <Button
             onClick={() => {

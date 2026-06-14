@@ -7,10 +7,28 @@ import {
   Typography,
 } from "@mui/material";
 import { useLiveQuery } from "dexie-react-hooks";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { db } from "../../db/db";
+import {
+  addBudget,
+  getBudgets,
+  getSubCategories,
+  updateBudget,
+} from "../../api/budget-api-client";
 import { MONTHLY_INCOME } from "./budget-values";
+
+type Budget = {
+  id?: number;
+  categoryName: string;
+  subCategoryName?: string;
+  amount: number;
+};
+
+type SubCategory = {
+  id?: number;
+  categoryName: string;
+  name: string;
+};
 
 const formatCurrency = (amount: number) => {
   return amount.toLocaleString(undefined, {
@@ -32,11 +50,7 @@ const parseBudgetAmount = (value: string) => {
 };
 
 const getBudgetAmount = (
-  budgets: Array<{
-    categoryName: string;
-    subCategoryName?: string;
-    amount: number;
-  }>,
+  budgets: Budget[],
   categoryName: string,
   subCategoryName?: string,
 ) => {
@@ -50,13 +64,7 @@ const getBudgetAmount = (
   return budget?.amount ?? 0;
 };
 
-const getCategoryBudgetTotals = (
-  budgets: Array<{
-    categoryName: string;
-    subCategoryName?: string;
-    amount: number;
-  }>,
-) => {
+const getCategoryBudgetTotals = (budgets: Budget[]) => {
   const totals = new Map<string, number>();
 
   for (const budget of budgets) {
@@ -76,17 +84,33 @@ const getCategoryBudgetTotals = (
   }));
 };
 
+const getNextBudgetId = (budgets: Budget[]) => {
+  const maxId = budgets.reduce((currentMaxId, budget) => {
+    return Math.max(currentMaxId, budget.id ?? 0);
+  }, 0);
+
+  return maxId + 1;
+};
+
 export const BudgetPage = () => {
   const [budgetViewMode, setBudgetViewMode] = useState<
     "category" | "subCategory"
   >("category");
+  const [editableBudgets, setEditableBudgets] = useState<Budget[]>([]);
+
   const budgets = useLiveQuery(async () => {
-    return db.budgets.orderBy("categoryName").toArray();
+    return getBudgets() as Promise<Budget[]>;
   }, []);
+
   const subCategories = useLiveQuery(async () => {
-    return db.subCategories.orderBy("categoryName").toArray();
+    return getSubCategories() as Promise<SubCategory[]>;
   }, []);
-  const totalBudget = getCategoryBudgetTotals(budgets ?? []).reduce(
+
+  useEffect(() => {
+    setEditableBudgets(budgets ?? []);
+  }, [budgets]);
+
+  const totalBudget = getCategoryBudgetTotals(editableBudgets).reduce(
     (runningTotal, budget) => {
       return runningTotal + budget.amount;
     },
@@ -151,8 +175,9 @@ export const BudgetPage = () => {
           <ToggleButton value="category">Category</ToggleButton>
           <ToggleButton value="subCategory">Sub-category</ToggleButton>
         </ToggleButtonGroup>
+
         {budgetViewMode === "category"
-          ? getCategoryBudgetTotals(budgets ?? []).map((budget) => (
+          ? getCategoryBudgetTotals(editableBudgets).map((budget) => (
               <Box
                 key={budget.categoryName}
                 sx={{
@@ -175,7 +200,7 @@ export const BudgetPage = () => {
               </Box>
             ))
           : (subCategories ?? []).map((subCategory) => {
-              const existingBudget = (budgets ?? []).find((budget) => {
+              const existingBudget = editableBudgets.find((budget) => {
                 return (
                   budget.categoryName === subCategory.categoryName &&
                   (budget.subCategoryName ?? "") === subCategory.name
@@ -202,31 +227,85 @@ export const BudgetPage = () => {
                     type="number"
                     size="small"
                     value={getBudgetAmount(
-                      budgets ?? [],
+                      editableBudgets,
                       subCategory.categoryName,
                       subCategory.name,
                     )}
                     onChange={(event) => {
                       const amount = parseBudgetAmount(event.target.value);
 
-                      if (existingBudget?.id) {
-                        void db.budgets.update(existingBudget.id, {
-                          amount,
-                        });
+                      setEditableBudgets((currentBudgets) => {
+                        const hasExistingBudget = currentBudgets.some(
+                          (budget) => {
+                            return (
+                              budget.categoryName ===
+                                subCategory.categoryName &&
+                              (budget.subCategoryName ?? "") ===
+                                subCategory.name
+                            );
+                          },
+                        );
 
+                        if (!hasExistingBudget) {
+                          return [
+                            ...currentBudgets,
+                            {
+                              id: getNextBudgetId(currentBudgets),
+                              categoryName: subCategory.categoryName,
+                              subCategoryName: subCategory.name,
+                              amount,
+                            },
+                          ];
+                        }
+
+                        return currentBudgets.map((budget) => {
+                          const isMatchingBudget =
+                            budget.categoryName === subCategory.categoryName &&
+                            (budget.subCategoryName ?? "") === subCategory.name;
+
+                          if (!isMatchingBudget) {
+                            return budget;
+                          }
+
+                          return {
+                            ...budget,
+                            amount,
+                          };
+                        });
+                      });
+                    }}
+                    onBlur={() => {
+                      const budgetToSave = editableBudgets.find((budget) => {
+                        return (
+                          budget.categoryName === subCategory.categoryName &&
+                          (budget.subCategoryName ?? "") === subCategory.name
+                        );
+                      });
+
+                      if (!budgetToSave) {
                         return;
                       }
 
-                      void db.budgets.add({
+                      if (existingBudget?.id) {
+                        void updateBudget(
+                          existingBudget.id,
+                          budgetToSave.amount,
+                        );
+                        return;
+                      }
+
+                      void addBudget({
+                        id: budgetToSave.id ?? getNextBudgetId(editableBudgets),
                         categoryName: subCategory.categoryName,
                         subCategoryName: subCategory.name,
-                        amount,
+                        amount: budgetToSave.amount,
                       });
                     }}
                   />
                 </Box>
               );
             })}
+
         <Box
           sx={{
             display: "grid",

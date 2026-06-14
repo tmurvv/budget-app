@@ -21,7 +21,13 @@ import {
 } from "@mui/material";
 
 import { AppAlert, ConfirmDialog, TextInput } from "../../components";
-import { db } from "../../db/db";
+import {
+  addSubCategory,
+  deleteSubCategory,
+  getCategories,
+  getSubCategories,
+  updateSubCategory,
+} from "../../api/budget-api-client";
 
 type SubCategoryToDelete = {
   id: number;
@@ -31,6 +37,14 @@ type SubCategoryToDelete = {
 type SubCategoryToRename = {
   id: number;
   name: string;
+};
+
+const getNextSubCategoryId = (subCategories: Array<{ id?: number }>) => {
+  const maxId = subCategories.reduce((currentMaxId, subCategory) => {
+    return Math.max(currentMaxId, subCategory.id ?? 0);
+  }, 0);
+
+  return maxId + 1;
 };
 
 export const SubCategoriesPage = () => {
@@ -49,19 +63,22 @@ export const SubCategoriesPage = () => {
       useState<SubCategoryToRename | null>(null);
 
   const categories = useLiveQuery(async () => {
-    return db.categories.orderBy("name").toArray();
+    return getCategories();
   }, []);
+
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const subCategories = useLiveQuery(async () => {
     if (!selectedCategoryName) {
       return [];
     }
 
-    return db.subCategories
-        .where("categoryName")
-        .equals(selectedCategoryName)
-        .sortBy("name");
-  }, [selectedCategoryName]);
+    const allSubCategories = await getSubCategories();
+
+    return allSubCategories.filter((subCategory) => {
+      return subCategory.categoryName === selectedCategoryName;
+    });
+  }, [selectedCategoryName, refreshKey]);
 
   const handleAddSubCategory = async () => {
     const trimmed = newSubCategoryName.trim();
@@ -71,13 +88,18 @@ export const SubCategoriesPage = () => {
     }
 
     try {
-      await db.subCategories.add({
+     await addSubCategory({
+        id: getNextSubCategoryId(subCategories ?? []),
         categoryName: selectedCategoryName,
         name: trimmed,
       });
 
       setNewSubCategoryName("");
       setAlertMessage("");
+
+      setRefreshKey((currentRefreshKey) => {
+        return currentRefreshKey + 1;
+      });
     } catch (error) {
       const message =
           error instanceof Error ? error.message : "Failed to add sub-category";
@@ -99,21 +121,26 @@ export const SubCategoriesPage = () => {
       return;
     }
 
-    const usageCount = await db.transactions
-        .where("subCategory")
-        .equals(subCategoryToDelete.name)
-        .count();
+    const transactions = await getTransactions();
+
+    const usageCount = transactions.filter((transaction) => {
+      return transaction.subCategory === subCategoryToDelete.name;
+    }).length;
 
     if (usageCount > 0) {
       setAlertMessage(
-          `Cannot delete "${subCategoryToDelete.name}". It is used by ${usageCount} transactions.`,
+        `Cannot delete "${subCategoryToDelete.name}". It is used by ${usageCount} transactions.`,
       );
       setConfirmOpen(false);
       setSubCategoryToDelete(null);
       return;
     }
 
-    await db.subCategories.delete(subCategoryToDelete.id);
+    await deleteSubCategory(subCategoryToDelete.id);
+
+    setRefreshKey((currentRefreshKey) => {
+      return currentRefreshKey + 1;
+    });
 
     setConfirmOpen(false);
     setSubCategoryToDelete(null);
@@ -158,33 +185,25 @@ export const SubCategoriesPage = () => {
       return;
     }
 
-    const existing = await db.subCategories
-        .where("[categoryName+name]")
-        .equals([selectedCategoryName, trimmed])
-        .first();
+    const existing = (subCategories ?? []).find((subCategory) => {
+      return (
+        subCategory.categoryName === selectedCategoryName &&
+        subCategory.name === trimmed
+      );
+    });
 
     if (existing) {
       setAlertMessage(`Sub-category "${trimmed}" already exists.`);
       return;
     }
 
-    await db.transaction(
-        "rw",
-        db.subCategories,
-        db.transactions,
-        async () => {
-          await db.subCategories.update(subCategoryToRename.id, {
-            name: trimmed,
-          });
+    await updateSubCategory(subCategoryToRename.id, {
+      name: trimmed,
+    });
 
-          await db.transactions
-              .where("subCategory")
-              .equals(subCategoryToRename.name)
-              .modify({
-                subCategory: trimmed,
-              });
-        },
-    );
+    setRefreshKey((currentRefreshKey) => {
+      return currentRefreshKey + 1;
+    });
 
     setRenameDialogOpen(false);
     setSubCategoryToRename(null);

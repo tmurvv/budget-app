@@ -18,7 +18,17 @@ import {
 
 import { AppAlert, ConfirmDialog, TextInput } from "../../components";
 import { ViewRules } from "../rules/view-rules";
-import { db } from "../../db/db";
+import {
+  addCategory,
+  deleteCategory,
+  getCategories,
+  updateCategory,
+} from "../../api/budget-api-client";
+
+type Category = {
+  id?: number;
+  name: string;
+};
 
 type CategoryToDelete = {
   id: number;
@@ -30,20 +40,35 @@ type CategoryToRename = {
   name: string;
 };
 
+const getNextCategoryId = (categories: Category[]) => {
+  const maxId = categories.reduce((currentMaxId, category) => {
+    return Math.max(currentMaxId, category.id ?? 0);
+  }, 0);
+
+  return maxId + 1;
+};
+
 export const CategoriesPage = () => {
   const [alertMessage, setAlertMessage] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [categoryToDelete, setCategoryToDelete] =
-      useState<CategoryToDelete | null>(null);
+    useState<CategoryToDelete | null>(null);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameCategoryName, setRenameCategoryName] = useState("");
   const [categoryToRename, setCategoryToRename] =
-      useState<CategoryToRename | null>(null);
+    useState<CategoryToRename | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const categories = useLiveQuery(async () => {
-    return db.categories.orderBy("name").toArray();
-  }, []);
+    return getCategories() as Promise<Category[]>;
+  }, [refreshKey]);
+
+  const refreshCategories = () => {
+    setRefreshKey((currentRefreshKey) => {
+      return currentRefreshKey + 1;
+    });
+  };
 
   const handleAddCategory = async () => {
     const trimmedCategoryName = newCategoryName.trim();
@@ -53,23 +78,25 @@ export const CategoriesPage = () => {
     }
 
     try {
-      await db.categories.add({
+      await addCategory({
+        id: getNextCategoryId(categories ?? []),
         name: trimmedCategoryName,
       });
 
       setAlertMessage("");
       setNewCategoryName("");
+      refreshCategories();
     } catch (error) {
       const message =
-          error instanceof Error ? error.message : "Failed to add category";
+        error instanceof Error ? error.message : "Failed to add category";
 
       setAlertMessage(message);
     }
   };
 
   const handleStartDeleteCategory = (
-      categoryId: number | undefined,
-      categoryName: string,
+    categoryId: number | undefined,
+    categoryName: string,
   ) => {
     if (!categoryId) {
       return;
@@ -87,39 +114,12 @@ export const CategoriesPage = () => {
       return;
     }
 
-    const transactionUsageCount = await db.transactions
-        .where("category")
-        .equals(categoryToDelete.name)
-        .count();
-
-    const subCategoryUsageCount = await db.subCategories
-        .where("categoryName")
-        .equals(categoryToDelete.name)
-        .count();
-
-    if (transactionUsageCount > 0) {
-      setAlertMessage(
-          `Cannot delete "${categoryToDelete.name}". It is used by ${transactionUsageCount} transactions.`,
-      );
-      setCategoryToDelete(null);
-      setConfirmOpen(false);
-      return;
-    }
-
-    if (subCategoryUsageCount > 0) {
-      setAlertMessage(
-          `Cannot delete "${categoryToDelete.name}". It still has ${subCategoryUsageCount} sub-categories.`,
-      );
-      setCategoryToDelete(null);
-      setConfirmOpen(false);
-      return;
-    }
-
-    await db.categories.delete(categoryToDelete.id);
+    await deleteCategory(categoryToDelete.id);
 
     setAlertMessage("");
     setCategoryToDelete(null);
     setConfirmOpen(false);
+    refreshCategories();
   };
 
   const handleCancelDeleteCategory = () => {
@@ -128,8 +128,8 @@ export const CategoriesPage = () => {
   };
 
   const handleStartRenameCategory = (
-      categoryId: number | undefined,
-      categoryName: string,
+    categoryId: number | undefined,
+    categoryName: string,
   ) => {
     if (!categoryId) {
       return;
@@ -161,51 +161,15 @@ export const CategoriesPage = () => {
       return;
     }
 
-    if (trimmedCategoryName === categoryToRename.name) {
-      handleCancelRenameCategory();
-      return;
-    }
-
-    const existingCategory = await db.categories
-        .where("name")
-        .equals(trimmedCategoryName)
-        .first();
-
-    if (existingCategory) {
-      setAlertMessage(`Category "${trimmedCategoryName}" already exists.`);
-      return;
-    }
-
-    await db.transaction(
-        "rw",
-        db.categories,
-        db.transactions,
-        db.subCategories,
-        async () => {
-          await db.categories.update(categoryToRename.id, {
-            name: trimmedCategoryName,
-          });
-
-          await db.transactions
-              .where("category")
-              .equals(categoryToRename.name)
-              .modify({
-                category: trimmedCategoryName,
-              });
-
-          await db.subCategories
-              .where("categoryName")
-              .equals(categoryToRename.name)
-              .modify({
-                categoryName: trimmedCategoryName,
-              });
-        },
-    );
+    await updateCategory(categoryToRename.id, {
+      name: trimmedCategoryName,
+    });
 
     setAlertMessage("");
     setCategoryToRename(null);
     setRenameCategoryName("");
     setRenameDialogOpen(false);
+    refreshCategories();
   };
 
   return (

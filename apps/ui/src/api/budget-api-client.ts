@@ -65,6 +65,27 @@ export const addTransaction = async (transaction: Transaction) => {
   return response.json() as Promise<Transaction>;
 };
 
+export const addTransactions = async (transactions: Transaction[]) => {
+  const response = await fetch(`${API_BASE_URL}/transactions/bulk`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      transactions,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to add transactions");
+  }
+
+  return response.json() as Promise<{
+    insertedCount: number;
+    duplicateCount: number;
+  }>;
+};
+
 export const updateTransaction = async (
   transactionId: number,
   transaction: Partial<Transaction>,
@@ -96,4 +117,202 @@ export const deleteTransaction = async (transactionId: number) => {
   if (!response.ok) {
     throw new Error("Failed to delete transaction");
   }
+};
+
+export const getBudgets = async () => {
+  const response = await fetch(`${API_BASE_URL}/budgets`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch budgets");
+  }
+
+  return response.json();
+};
+
+export const getSubCategories = async () => {
+  const response = await fetch(`${API_BASE_URL}/budgets/sub-categories`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch sub-categories");
+  }
+
+  return response.json();
+};
+
+export const updateBudget = async (budgetId: number, amount: number) => {
+  const response = await fetch(`${API_BASE_URL}/budgets/${budgetId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      amount,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to update budget");
+  }
+};
+
+export const addBudget = async (budget: {
+  id: number;
+  categoryName: string;
+  subCategoryName?: string;
+  amount: number;
+}) => {
+  const response = await fetch(`${API_BASE_URL}/budgets`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(budget),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to add budget");
+  }
+
+  return response.json();
+};
+export const getCategories = async () => {
+  const response = await fetch(`${API_BASE_URL}/categories`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch categories");
+  }
+
+  return response.json();
+};
+
+export const addCategory = async (category: { id: number; name: string }) => {
+  const response = await fetch(`${API_BASE_URL}/categories`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(category),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to add category");
+  }
+
+  return response.json();
+};
+
+export const updateCategory = async (
+  categoryId: number,
+  updates: Record<string, unknown>,
+) => {
+  const response = await fetch(`${API_BASE_URL}/categories/${categoryId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(updates),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to update category");
+  }
+};
+
+export const deleteCategory = async (categoryId: number) => {
+  const response = await fetch(`${API_BASE_URL}/categories/${categoryId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to delete category");
+  }
+};
+
+export const addSubCategory = async (subCategory: {
+  id: number;
+  categoryName: string;
+  name: string;
+}) => {
+  const response = await fetch(`${API_BASE_URL}/sub-categories`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(subCategory),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to add sub-category");
+  }
+
+  return response.json();
+};
+
+export const updateSubCategory = async (
+  subCategoryId: number,
+  updates: Record<string, unknown>,
+) => {
+  const response = await fetch(
+    `${API_BASE_URL}/sub-categories/${subCategoryId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(updates),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to update sub-category");
+  }
+};
+
+export const deleteSubCategory = async (subCategoryId: number) => {
+  const response = await fetch(
+    `${API_BASE_URL}/sub-categories/${subCategoryId}`,
+    {
+      method: "DELETE",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to delete sub-category");
+  }
+};
+
+export const saveTransactionSplit = async (
+  transactionId: number,
+  allocations: Array<{
+    transactionId: number;
+    month: string;
+    amount: number;
+  }>,
+) => {
+  const response = await fetch(
+    `${API_BASE_URL}/transactions/${transactionId}/split`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        allocations,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to save transaction split");
+  }
+};
+
+export const getTransactionAllocations = async () => {
+  const response = await fetch(`${API_BASE_URL}/transaction-allocations`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch transaction allocations");
+  }
+
+  return response.json();
 };
