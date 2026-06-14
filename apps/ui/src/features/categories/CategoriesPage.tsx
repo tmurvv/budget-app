@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
+import { useEffect, useState } from "react";
 import { Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
 import {
   Box,
@@ -60,10 +59,16 @@ export const CategoriesPage = () => {
     useState<CategoryToRename | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const categories = useLiveQuery(async () => {
-    return getCategories() as Promise<Category[]>;
-  }, [refreshKey]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
+  useEffect(() => {
+    const loadCategories = async () => {
+      const loadedCategories = (await getCategories()) as Category[];
+      setCategories(loadedCategories);
+    };
+
+    void loadCategories();
+  }, [refreshKey]);
   const refreshCategories = () => {
     setRefreshKey((currentRefreshKey) => {
       return currentRefreshKey + 1;
@@ -79,7 +84,7 @@ export const CategoriesPage = () => {
 
     try {
       await addCategory({
-        id: getNextCategoryId(categories ?? []),
+        id: getNextCategoryId(categories),
         name: trimmedCategoryName,
       });
 
@@ -216,7 +221,7 @@ export const CategoriesPage = () => {
 
       <Paper sx={{ maxWidth: 600, marginLeft: "auto", marginRight: "auto" }}>
         <List>
-          {(categories ?? []).map((category) => (
+          {categories.map((category) => (
             <ListItem
               key={category.id}
               secondaryAction={

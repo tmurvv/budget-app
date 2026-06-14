@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
+import { useEffect, useState } from "react";
 import { DateTime } from "luxon";
 import { Box, FormControlLabel, Switch, Typography } from "@mui/material";
 
 import { getTransactions } from "../../api/budget-api-client";
 import { CategorySelect, SearchInput } from "../../components";
 import { TransactionTable } from "./TransactionTable";
+import type { Transaction } from "./types";
 
 export const TransactionsPage = () => {
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -13,22 +13,32 @@ export const TransactionsPage = () => {
   const [searchText, setSearchText] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const transactions = useLiveQuery(async () => {
-    console.time("getTransactions");
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-    const allTransactions = await getTransactions();
-    console.log("after all");
+  useEffect(() => {
+    const loadTransactions = async () => {
+      console.time("getTransactions");
 
-    console.timeEnd("getTransactions");
+      const allTransactions = await getTransactions();
 
-    const startDate = DateTime.now().minus({ days: 180 }).startOf("day").toISO();
+      console.timeEnd("getTransactions");
 
-    return allTransactions.filter((transaction) => {
-      return transaction.date >= startDate;
-    });
+      const startDate = DateTime.now()
+        .minus({ days: 180 })
+        .startOf("day")
+        .toISO();
+
+      const recentTransactions = allTransactions.filter((transaction) => {
+        return transaction.date >= startDate;
+      });
+
+      setTransactions(recentTransactions);
+    };
+
+    void loadTransactions();
   }, [refreshKey]);
 
-  const filteredTransactions = (transactions ?? []).filter((transaction) => {
+  const filteredTransactions = transactions.filter((transaction) => {
     const normalizedDescription = transaction.description.toLowerCase().trim();
     const normalizedNotes = (transaction.notes ?? "").toLowerCase().trim();
     const normalizedSearchText = searchText.toLowerCase().trim();

@@ -1,7 +1,7 @@
 import Papa from "papaparse";
 
-import { db } from "../../db/db";
 import type { Transaction } from "./types";
+import { addTransactions, getRules } from "../../api/budget-api-client";
 
 type CsvRow = Record<string, string | undefined>;
 
@@ -84,9 +84,9 @@ const getFirstValue = (row: CsvRow, candidateKeys: string[]) => {
 
 const parseRawAmount = (rawAmount: string) => {
   const cleanedAmount = rawAmount
-      .replaceAll(",", "")
-      .replaceAll("$", "")
-      .trim();
+    .replaceAll(",", "")
+    .replaceAll("$", "")
+    .trim();
 
   const parsedAmount = Number(cleanedAmount);
 
@@ -145,9 +145,9 @@ const detectBankFormat = (row: CsvRow): BankFormatConfig => {
   }
 
   const hasManShape =
-      rowKeys.includes("Posted Date") ||
-      rowKeys.includes("Points") ||
-      rowKeys.includes("Description");
+    rowKeys.includes("Posted Date") ||
+    rowKeys.includes("Points") ||
+    rowKeys.includes("Description");
 
   if (hasManShape) {
     return {
@@ -159,9 +159,9 @@ const detectBankFormat = (row: CsvRow): BankFormatConfig => {
   }
 
   const hasRbcShape =
-      rowKeys.includes("Description 1") &&
-      rowKeys.includes("Description 2") &&
-      (rowKeys.includes("CAD$") || rowKeys.includes("USD$"));
+    rowKeys.includes("Description 1") &&
+    rowKeys.includes("Description 2") &&
+    (rowKeys.includes("CAD$") || rowKeys.includes("USD$"));
 
   if (hasRbcShape) {
     return {
@@ -173,30 +173,25 @@ const detectBankFormat = (row: CsvRow): BankFormatConfig => {
   }
 
   throw new Error(
-      `Unsupported CSV format. Found columns: ${rowKeys.join(", ")}`,
+    `Unsupported CSV format. Found columns: ${rowKeys.join(", ")}`,
   );
 };
 
 const normalizeManTransaction = (
-    row: CsvRow,
-    bankFormatConfig: BankFormatConfig,
+  row: CsvRow,
+  bankFormatConfig: BankFormatConfig,
 ): Transaction => {
   const date = normalizeDate(
-      getFirstValue(row, [
-        "date",
-        "Date",
-        "transaction date",
-        "Transaction Date",
-      ]),
+    getFirstValue(row, [
+      "date",
+      "Date",
+      "transaction date",
+      "Transaction Date",
+    ]),
   );
 
   const amount = parseRawAmount(
-      getFirstValue(row, [
-        "amount",
-        "Amount",
-        "posted amount",
-        "Posted Amount",
-      ]),
+    getFirstValue(row, ["amount", "Amount", "posted amount", "Posted Amount"]),
   );
 
   const description = getFirstValue(row, [
@@ -261,20 +256,12 @@ const normalizeManulifeOneTransaction = (
   };
 };
 const normalizeRbcTransaction = (
-    row: CsvRow,
-    bankFormatConfig: BankFormatConfig,
+  row: CsvRow,
+  bankFormatConfig: BankFormatConfig,
 ): Transaction => {
-  const date = normalizeDate(
-      getFirstValue(row, [
-        "Transaction Date",
-        "Date",
-      ]),
-  );
+  const date = normalizeDate(getFirstValue(row, ["Transaction Date", "Date"]));
 
-  const rawAmount = getFirstValue(row, [
-    "CAD$",
-    "USD$",
-  ]);
+  const rawAmount = getFirstValue(row, ["CAD$", "USD$"]);
 
   const parsedAmount = parseRawAmount(rawAmount);
 
@@ -284,8 +271,8 @@ const normalizeRbcTransaction = (
   const descriptionTwo = getFirstValue(row, ["Description 2"]);
 
   const description = [descriptionOne, descriptionTwo]
-      .filter((value) => value.length > 0)
-      .join(" - ");
+    .filter((value) => value.length > 0)
+    .join(" - ");
 
   if (!description) {
     throw new Error("Missing description");
@@ -324,8 +311,8 @@ const normalizeTransactionForBank = (
 };
 
 const getPointsValue = (
-    transaction: Transaction,
-    bankFormatConfig: BankFormatConfig,
+  transaction: Transaction,
+  bankFormatConfig: BankFormatConfig,
 ) => {
   if (!bankFormatConfig.supportsPoints) {
     return null;
@@ -356,8 +343,8 @@ const dedupeTransactions = (transactions: Transaction[]) => {
 };
 
 const buildZeroRewardTransactions = (
-    transactions: Transaction[],
-    bankFormatConfig: BankFormatConfig,
+  transactions: Transaction[],
+  bankFormatConfig: BankFormatConfig,
 ) => {
   if (!bankFormatConfig.supportsPoints) {
     return [];
@@ -367,12 +354,12 @@ const buildZeroRewardTransactions = (
 
   for (const transaction of transactions) {
     const existingTransactions =
-        transactionsByFingerprint.get(transaction.fingerprint) ?? [];
+      transactionsByFingerprint.get(transaction.fingerprint) ?? [];
 
     existingTransactions.push(transaction);
     transactionsByFingerprint.set(
-        transaction.fingerprint,
-        existingTransactions,
+      transaction.fingerprint,
+      existingTransactions,
     );
   }
 
@@ -381,7 +368,7 @@ const buildZeroRewardTransactions = (
   for (const groupedTransactions of transactionsByFingerprint.values()) {
     const hasAnyPositivePoints = groupedTransactions.some((transaction) => {
       const pointsValue = Number(
-          getPointsValue(transaction, bankFormatConfig) ?? "",
+        getPointsValue(transaction, bankFormatConfig) ?? "",
       );
 
       return pointsValue > 0;
@@ -408,7 +395,7 @@ const findCategoryFromRules = async ({
 }) => {
   const normalizedDescription = normalizeText(description);
 
-  const rules = (await db.categoryRules.toArray())
+  const rules = (await getRules())
     .filter((rule) => {
       return rule.isActive;
     })
@@ -428,7 +415,7 @@ const findCategoryFromRules = async ({
 };
 
 export const importTransactionsFromCsvFile = async (
-    file: File,
+  file: File,
 ): Promise<ImportTransactionsResult> => {
   const parsedRows = await parseCsvFile(file);
 
@@ -480,49 +467,30 @@ export const importTransactionsFromCsvFile = async (
   );
 
   const notPostedTransactions = bankFormatConfig.supportsPostedDate
-      ? normalizedTransactions.filter((transaction) => {
+    ? normalizedTransactions.filter((transaction) => {
         return transaction.raw?.["Posted Date"] === "-";
       })
-      : [];
+    : [];
 
   const postedTransactions = bankFormatConfig.supportsPostedDate
-      ? normalizedTransactions.filter((transaction) => {
+    ? normalizedTransactions.filter((transaction) => {
         return transaction.raw?.["Posted Date"] !== "-";
       })
-      : normalizedTransactions;
+    : normalizedTransactions;
 
   const { dedupedTransactions, duplicateCount } =
-      dedupeTransactions(postedTransactions);
+    dedupeTransactions(postedTransactions);
 
   const zeroRewardTransactions = buildZeroRewardTransactions(
-      postedTransactions,
-      bankFormatConfig,
+    postedTransactions,
+    bankFormatConfig,
   );
 
-  const existingTransactions = await db.transactions
-    .where("fingerprint")
-    .anyOf(
-      dedupedTransactions.map((transaction) => {
-        return transaction.fingerprint;
-      }),
-    )
-    .toArray();
-
-  const existingFingerprints = new Set(
-    existingTransactions.map((transaction) => {
-      return transaction.fingerprint;
-    }),
-  );
-
-  const newTransactions = dedupedTransactions.filter((transaction) => {
-    return !existingFingerprints.has(transaction.fingerprint);
-  });
-
-  await db.transactions.bulkPut(newTransactions);
+  const importResult = await addTransactions(dedupedTransactions);
 
   return {
     totalRowCount: parsedRows.length,
-    insertedCount: dedupedTransactions.length,
+    insertedCount: importResult.insertedCount,
     duplicateCount,
     zeroRewardTransactions,
     notPostedTransactions,

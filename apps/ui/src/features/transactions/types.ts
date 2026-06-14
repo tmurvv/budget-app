@@ -10,3 +10,10 @@ export type Transaction = {
   notes?: string;
   raw?: Record<string, any>;
 };
+
+export type TransactionAllocation = {
+  id?: number;
+  transactionId: number;
+  month: string;
+  amount: number;
+};

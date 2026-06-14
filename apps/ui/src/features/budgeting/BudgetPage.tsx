@@ -6,7 +6,6 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
-import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useState } from "react";
 
 import {
@@ -98,12 +97,21 @@ export const BudgetPage = () => {
   >("category");
   const [editableBudgets, setEditableBudgets] = useState<Budget[]>([]);
 
-  const budgets = useLiveQuery(async () => {
-    return getBudgets() as Promise<Budget[]>;
-  }, []);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
 
-  const subCategories = useLiveQuery(async () => {
-    return getSubCategories() as Promise<SubCategory[]>;
+  useEffect(() => {
+    const loadBudgetData = async () => {
+      const [loadedBudgets, loadedSubCategories] = await Promise.all([
+        getBudgets() as Promise<Budget[]>,
+        getSubCategories() as Promise<SubCategory[]>,
+      ]);
+
+      setBudgets(loadedBudgets);
+      setSubCategories(loadedSubCategories);
+    };
+
+    void loadBudgetData();
   }, []);
 
   useEffect(() => {
@@ -199,7 +207,7 @@ export const BudgetPage = () => {
                 />
               </Box>
             ))
-          : (subCategories ?? []).map((subCategory) => {
+          : subCategories.map((subCategory) => {
               const existingBudget = editableBudgets.find((budget) => {
                 return (
                   budget.categoryName === subCategory.categoryName &&

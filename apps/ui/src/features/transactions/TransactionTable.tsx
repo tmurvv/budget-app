@@ -1,4 +1,4 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import { useEffect, useState } from "react";
 
 import {
   Box,
@@ -27,7 +27,6 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import { CategorySelect, NotesInput } from "../../components";
 import { Transaction } from "./types";
-import { useState } from "react";
 import { SplitTransactionDialog } from "./split-transaction-dialog";
 import { DateTime } from "luxon";
 import { AddTransactionDialog } from "./add-transaction-dialog";
@@ -36,6 +35,8 @@ import {
   getSubCategories,
   saveTransactionSplit,
   updateTransaction,
+  addRule,
+  getRules,
 } from "../../api/budget-api-client";
 
 type TransactionTableProps = {
@@ -92,8 +93,22 @@ export const TransactionTable = (props: TransactionTableProps) => {
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
-  const subCategories = useLiveQuery(async () => {
-    return getSubCategories();
+  const [subCategories, setSubCategories] = useState<
+    Array<{
+      id?: number;
+      categoryName: string;
+      name: string;
+    }>
+  >([]);
+
+  useEffect(() => {
+    const loadSubCategories = async () => {
+      const loadedSubCategories = await getSubCategories();
+
+      setSubCategories(loadedSubCategories);
+    };
+
+    void loadSubCategories();
   }, []);
 
   const getNextRulePriority = async () => {
@@ -185,7 +200,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
       return [];
     }
 
-    return (subCategories ?? [])
+    return subCategories
       .filter((subCategory) => {
         return subCategory.categoryName === categoryName;
       })
@@ -420,8 +435,15 @@ export const TransactionTable = (props: TransactionTableProps) => {
 
               const nextPriority = await getNextRulePriority();
 
+              const rules = await getRules();
+
+              const nextRuleId =
+                rules.reduce((currentMaxId, rule) => {
+                  return Math.max(currentMaxId, rule.id);
+                }, 0) + 1;
+
               await addRule({
-                id: crypto.randomUUID(),
+                id: nextRuleId,
                 matchValue: trimmedMatchValue,
                 categoryName: pendingRule.categoryName,
                 subCategoryName: pendingRule.subCategoryName?.trim() || "",

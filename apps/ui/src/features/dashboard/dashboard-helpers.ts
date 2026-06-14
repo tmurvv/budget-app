@@ -1,4 +1,4 @@
-import type { BudgetRecord } from "../../db/db";
+import type { Budget } from "../budgeting/types";
 import {
   formatMonthLabel,
   getMonthKey,
@@ -74,7 +74,7 @@ export const getCategoryTotals = (
 };
 
 export const getBudgetStatuses = (
-  budgets: BudgetRecord[],
+  budgets: Budget[],
   transactions: DashboardTransaction[],
 ): BudgetStatus[] => {
   const categoryTotals = getCategoryTotals(transactions);
@@ -110,7 +110,7 @@ export const getBudgetStatuses = (
 };
 
 export const getSubCategoryBudgetStatuses = (
-  budgets: BudgetRecord[],
+  budgets: Budget[],
   transactions: DashboardTransaction[],
 ): BudgetStatus[] => {
   return budgets

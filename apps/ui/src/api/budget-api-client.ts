@@ -1,4 +1,5 @@
 import type { Transaction } from "../features/transactions/types";
+import type { CategoryRule } from "../features/rules/types";
 
 const API_BASE_URL = "http://localhost:8050";
 
@@ -315,4 +316,30 @@ export const getTransactionAllocations = async () => {
   }
 
   return response.json();
+};
+
+export const getRules = async (): Promise<CategoryRule[]> => {
+  const response = await fetch(`${API_BASE_URL}/rules`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch rules");
+  }
+
+  return response.json() as Promise<CategoryRule[]>;
+};
+
+export const addRule = async (rule: CategoryRule) => {
+  const response = await fetch(`${API_BASE_URL}/rules`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(rule),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to add rule");
+  }
+
+  return response.json() as Promise<CategoryRule>;
 };

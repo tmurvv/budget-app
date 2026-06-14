@@ -1,10 +1,5 @@
-import { useMemo, useState } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
-import {
-  Box,
-  Paper,
-  Typography,
-} from "@mui/material";
+import { useEffect, useMemo, useState } from "react";
+import { Box, Paper, Typography } from "@mui/material";
 
 import {
   formatCurrency,
@@ -34,6 +29,10 @@ import {
   groupSmallCategories,
 } from "./dashboard-helpers";
 
+import type { Transaction } from "../transactions/types";
+import type { Budget } from "../budgeting/types";
+import type { TransactionAllocation } from "../transactions/types";
+
 const cardStyles = {
   padding: 3,
   minHeight: 120,
@@ -50,30 +49,42 @@ export const DashboardPage = () => {
 
   const [budgetViewMode, setBudgetViewMode] =
     useState<BudgetViewMode>("category");
-  const transactions = useLiveQuery(async () => {
-    return getTransactions();
-  }, []);
 
-  const transactionAllocations = useLiveQuery(async () => {
-    return getTransactionAllocations();
-  }, []);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  const budgets = useLiveQuery(async () => {
-    return getBudgets();
+  const [transactionAllocations, setTransactionAllocations] = useState<
+    TransactionAllocation[]
+  >([]);
+
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      const [loadedTransactions, loadedTransactionAllocations, loadedBudgets] =
+        await Promise.all([
+          getTransactions(),
+          getTransactionAllocations(),
+          getBudgets(),
+        ]);
+
+      setTransactions(loadedTransactions);
+      setTransactionAllocations(loadedTransactionAllocations);
+      setBudgets(loadedBudgets);
+    };
+
+    void loadDashboardData();
   }, []);
 
   const dashboardData = useMemo(() => {
-    const allTransactions = transactions ?? [];
-
-    const spendingTransactions = allTransactions.filter((transaction) => {
+    const spendingTransactions = transactions.filter((transaction) => {
       return transaction.amount > 0;
     });
 
-    const incomeTransactions = allTransactions.filter((transaction) => {
+    const incomeTransactions = transactions.filter((transaction) => {
       return transaction.amount < 0;
     });
 
-    const uncategorizedCount = allTransactions.filter((transaction) => {
+    const uncategorizedCount = transactions.filter((transaction) => {
       return !transaction.category || !transaction.subCategory;
     }).length;
 
@@ -90,6 +101,7 @@ export const DashboardPage = () => {
     );
 
     const monthlyTotals = getMonthlyTotals(spendingTransactions);
+
     const availableMonths = getAvailableMonths(spendingTransactions);
 
     return {
@@ -121,14 +133,14 @@ export const DashboardPage = () => {
   const allocatedMonthlySpendingTransactions =
     getEffectiveMonthlySpendingTransactions(
       dashboardData.spendingTransactions,
-      transactionAllocations ?? [],
+      transactionAllocations,
       selectedMonth,
     );
 
   const allocatedMonthlyTotals = getAllocatedMonthlyTotals(
     dashboardData.availableMonths,
     dashboardData.spendingTransactions,
-    transactionAllocations ?? [],
+    transactionAllocations,
   );
 
   const grossMonthlyCategoryTotals = groupSmallCategories(
@@ -145,8 +157,6 @@ export const DashboardPage = () => {
   const allocatedMonthlySubCategoryTotalsByCategory =
     getSubCategoryTotalsByCategory(allocatedMonthlySpendingTransactions);
 
-  const budgetRecords = budgets ?? [];
-
   const monthlyTotalSpending = roundCurrency(
     allocatedMonthlySpendingTransactions.reduce((runningTotal, transaction) => {
       return runningTotal + transaction.amount;
@@ -154,7 +164,7 @@ export const DashboardPage = () => {
   );
 
   const monthlyTotalBudget = roundCurrency(
-    budgetRecords.reduce((runningTotal, budget) => {
+    budgets.reduce((runningTotal, budget) => {
       return runningTotal + budget.amount;
     }, 0),
   );
@@ -168,12 +178,12 @@ export const DashboardPage = () => {
   );
 
   const categoryBudgetStatuses = getBudgetStatuses(
-    budgetRecords,
+    budgets,
     allocatedMonthlySpendingTransactions,
   );
 
   const subCategoryBudgetStatuses = getSubCategoryBudgetStatuses(
-    budgetRecords,
+    budgets,
     allocatedMonthlySpendingTransactions,
   );
 
@@ -206,7 +216,6 @@ export const DashboardPage = () => {
       );
     });
   };
-
   return (
     <Box sx={{ padding: 4 }}>
       <Typography variant="h4" gutterBottom align="center">

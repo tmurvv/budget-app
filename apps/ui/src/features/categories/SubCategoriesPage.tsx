@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
+import { useEffect, useState } from "react";
 import {
   Delete as DeleteIcon,
   Edit as EditIcon,
@@ -26,8 +25,20 @@ import {
   deleteSubCategory,
   getCategories,
   getSubCategories,
+  getTransactions,
   updateSubCategory,
 } from "../../api/budget-api-client";
+
+type Category = {
+  id?: number;
+  name: string;
+};
+
+type SubCategory = {
+  id?: number;
+  categoryName: string;
+  name: string;
+};
 
 type SubCategoryToDelete = {
   id: number;
@@ -62,22 +73,38 @@ export const SubCategoriesPage = () => {
   const [subCategoryToRename, setSubCategoryToRename] =
       useState<SubCategoryToRename | null>(null);
 
-  const categories = useLiveQuery(async () => {
-    return getCategories();
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      const loadedCategories = (await getCategories()) as Category[];
+      setCategories(loadedCategories);
+    };
+
+    void loadCategories();
   }, []);
 
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const subCategories = useLiveQuery(async () => {
-    if (!selectedCategoryName) {
-      return [];
-    }
+  const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
 
-    const allSubCategories = await getSubCategories();
+  useEffect(() => {
+    const loadSubCategories = async () => {
+      if (!selectedCategoryName) {
+        setSubCategories([]);
+        return;
+      }
 
-    return allSubCategories.filter((subCategory) => {
-      return subCategory.categoryName === selectedCategoryName;
-    });
+      const allSubCategories = (await getSubCategories()) as SubCategory[];
+
+      const matchingSubCategories = allSubCategories.filter((subCategory) => {
+        return subCategory.categoryName === selectedCategoryName;
+      });
+
+      setSubCategories(matchingSubCategories);
+    };
+
+    void loadSubCategories();
   }, [selectedCategoryName, refreshKey]);
 
   const handleAddSubCategory = async () => {
@@ -89,10 +116,10 @@ export const SubCategoriesPage = () => {
 
     try {
      await addSubCategory({
-        id: getNextSubCategoryId(subCategories ?? []),
-        categoryName: selectedCategoryName,
-        name: trimmed,
-      });
+       id: getNextSubCategoryId(subCategories),
+       categoryName: selectedCategoryName,
+       name: trimmed,
+     });
 
       setNewSubCategoryName("");
       setAlertMessage("");
@@ -185,7 +212,7 @@ export const SubCategoriesPage = () => {
       return;
     }
 
-    const existing = (subCategories ?? []).find((subCategory) => {
+    const existing = subCategories.find((subCategory) => {
       return (
         subCategory.categoryName === selectedCategoryName &&
         subCategory.name === trimmed
@@ -212,139 +239,139 @@ export const SubCategoriesPage = () => {
   };
 
   return (
-      <Box sx={{ padding: 4 }}>
-        <Typography variant="h4" gutterBottom align="center">
-          Sub-categories
-        </Typography>
+    <Box sx={{ padding: 4 }}>
+      <Typography variant="h4" gutterBottom align="center">
+        Sub-categories
+      </Typography>
 
-        <Box sx={{ maxWidth: 700, marginLeft: "auto", marginRight: "auto" }}>
-          <AppAlert
-              open={Boolean(alertMessage)}
-              severity="warning"
-              title="Sub-category issue"
-              message={alertMessage}
-          />
-        </Box>
-
-        <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: "320px 1fr",
-              gap: 3,
-            }}
-        >
-          <Paper>
-            <List>
-              {(categories ?? []).map((category) => (
-                  <ListItemButton
-                      key={category.id}
-                      selected={selectedCategoryName === category.name}
-                      onClick={() => {
-                        setSelectedCategoryName(category.name);
-                        setAlertMessage("");
-                        setNewSubCategoryName("");
-                      }}
-                  >
-                    <ListItemText primary={category.name} />
-                  </ListItemButton>
-              ))}
-            </List>
-          </Paper>
-
-          <Paper sx={{ padding: 2 }}>
-            <Box sx={{ display: "flex", gap: 2, marginBottom: 2 }}>
-              <TextInput
-                  label="New sub-category"
-                  value={newSubCategoryName}
-                  onChange={setNewSubCategoryName}
-              />
-
-              <Button
-                  variant="contained"
-                  disabled={!selectedCategoryName}
-                  onClick={() => {
-                    void handleAddSubCategory();
-                  }}
-              >
-                Add
-              </Button>
-            </Box>
-
-            <Typography variant="h6" gutterBottom>
-              {selectedCategoryName
-                  ? `${selectedCategoryName} sub-categories`
-                  : "Select a category"}
-            </Typography>
-
-            <List>
-              {(subCategories ?? []).map((subCategory) => (
-                  <ListItem
-                      key={subCategory.id}
-                      secondaryAction={
-                        <Box sx={{ display: "flex", gap: 1 }}>
-                          <IconButton
-                              onClick={() => {
-                                handleStartRename(subCategory.id, subCategory.name);
-                              }}
-                          >
-                            <EditIcon />
-                          </IconButton>
-
-                          <IconButton
-                              color="error"
-                              onClick={() => {
-                                handleStartDelete(subCategory.id, subCategory.name);
-                              }}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Box>
-                      }
-                  >
-                    <ListItemText primary={subCategory.name} />
-                  </ListItem>
-              ))}
-            </List>
-          </Paper>
-        </Box>
-
-        <ConfirmDialog
-            open={confirmOpen}
-            title="Delete sub-category"
-            message={`Are you sure you want to delete "${subCategoryToDelete?.name}"?`}
-            confirmButtonText="Delete"
-            onConfirm={() => {
-              void handleConfirmDelete();
-            }}
-            onCancel={handleCancelDelete}
+      <Box sx={{ maxWidth: 700, marginLeft: "auto", marginRight: "auto" }}>
+        <AppAlert
+          open={Boolean(alertMessage)}
+          severity="warning"
+          title="Sub-category issue"
+          message={alertMessage}
         />
+      </Box>
 
-        <Dialog open={renameDialogOpen} onClose={handleCancelRename}>
-          <DialogTitle>Rename sub-category</DialogTitle>
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: "320px 1fr",
+          gap: 3,
+        }}
+      >
+        <Paper>
+          <List>
+            {categories.map((category) => (
+              <ListItemButton
+                key={category.id}
+                selected={selectedCategoryName === category.name}
+                onClick={() => {
+                  setSelectedCategoryName(category.name);
+                  setAlertMessage("");
+                  setNewSubCategoryName("");
+                }}
+              >
+                <ListItemText primary={category.name} />
+              </ListItemButton>
+            ))}
+          </List>
+        </Paper>
 
-          <DialogContent>
-            <Box sx={{ paddingTop: 1 }}>
-              <TextInput
-                  label="Sub-category name"
-                  value={renameSubCategoryName}
-                  onChange={setRenameSubCategoryName}
-              />
-            </Box>
-          </DialogContent>
-
-          <DialogActions>
-            <Button onClick={handleCancelRename}>Cancel</Button>
+        <Paper sx={{ padding: 2 }}>
+          <Box sx={{ display: "flex", gap: 2, marginBottom: 2 }}>
+            <TextInput
+              label="New sub-category"
+              value={newSubCategoryName}
+              onChange={setNewSubCategoryName}
+            />
 
             <Button
-                variant="contained"
-                onClick={() => {
-                  void handleConfirmRename();
-                }}
+              variant="contained"
+              disabled={!selectedCategoryName}
+              onClick={() => {
+                void handleAddSubCategory();
+              }}
             >
-              Save
+              Add
             </Button>
-          </DialogActions>
-        </Dialog>
+          </Box>
+
+          <Typography variant="h6" gutterBottom>
+            {selectedCategoryName
+              ? `${selectedCategoryName} sub-categories`
+              : "Select a category"}
+          </Typography>
+
+          <List>
+            {subCategories.map((subCategory) => (
+              <ListItem
+                key={subCategory.id}
+                secondaryAction={
+                  <Box sx={{ display: "flex", gap: 1 }}>
+                    <IconButton
+                      onClick={() => {
+                        handleStartRename(subCategory.id, subCategory.name);
+                      }}
+                    >
+                      <EditIcon />
+                    </IconButton>
+
+                    <IconButton
+                      color="error"
+                      onClick={() => {
+                        handleStartDelete(subCategory.id, subCategory.name);
+                      }}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+                }
+              >
+                <ListItemText primary={subCategory.name} />
+              </ListItem>
+            ))}
+          </List>
+        </Paper>
       </Box>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Delete sub-category"
+        message={`Are you sure you want to delete "${subCategoryToDelete?.name}"?`}
+        confirmButtonText="Delete"
+        onConfirm={() => {
+          void handleConfirmDelete();
+        }}
+        onCancel={handleCancelDelete}
+      />
+
+      <Dialog open={renameDialogOpen} onClose={handleCancelRename}>
+        <DialogTitle>Rename sub-category</DialogTitle>
+
+        <DialogContent>
+          <Box sx={{ paddingTop: 1 }}>
+            <TextInput
+              label="Sub-category name"
+              value={renameSubCategoryName}
+              onChange={setRenameSubCategoryName}
+            />
+          </Box>
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={handleCancelRename}>Cancel</Button>
+
+          <Button
+            variant="contained"
+            onClick={() => {
+              void handleConfirmRename();
+            }}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };

@@ -1,4 +1,4 @@
-import { useLiveQuery } from "dexie-react-hooks";
+import { useEffect, useState } from "react";
 import { FormControl, InputLabel, MenuItem, Select } from "@mui/material";
 
 import { getCategories } from "../api/budget-api-client";
@@ -45,15 +45,19 @@ export const CategorySelect = (props: CategorySelectProps) => {
     useDarkStyles = false,
   } = props;
 
-  const categories = useLiveQuery(async () => {
-    return getCategories() as Promise<Category[]>;
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      const loadedCategories = (await getCategories()) as Category[];
+
+      setCategories(loadedCategories);
+    };
+
+    void loadCategories();
   }, []);
 
   const labelId = `${label.toLowerCase().replaceAll(" ", "-")}-label`;
-
-  if (!categories) {
-    return null;
-  }
 
   return (
     <FormControl sx={{ minWidth }}>
