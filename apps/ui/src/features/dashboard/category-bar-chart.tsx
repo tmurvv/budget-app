@@ -11,7 +11,6 @@ import {
 } from "recharts";
 
 import { formatCurrency, roundCurrency } from "./dashboard-formatters";
-import type { MonthlyTotal } from "./dashboard-types";
 
 const BAR_COLORS = [
   "#60a5fa",
@@ -26,20 +25,33 @@ const BAR_COLORS = [
   "#2dd4bf",
 ];
 
-type ChartDataPoint = MonthlyTotal & {
+type CategoryBarChartItem = {
+  categoryName: string;
+  actual: number;
+  target: number;
+};
+
+type ChartDataPoint = CategoryBarChartItem & {
   fill: string;
   targetFill: string;
 };
 
-type MonthlyBarChartProps = {
+type CategoryBarChartProps = {
   title: string;
-  monthlyTotals: MonthlyTotal[];
-  showTargets?: boolean;
+  items: CategoryBarChartItem[];
 };
 
 type TargetMarkerProps = {
   cx?: number;
   cy?: number;
+  payload?: ChartDataPoint;
+};
+
+type ActualBarProps = {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
   payload?: ChartDataPoint;
 };
 
@@ -61,12 +73,12 @@ const invertHexColor = (hexColor: string) => {
     .join("")}`;
 };
 
-const buildChartData = (monthlyTotals: MonthlyTotal[]): ChartDataPoint[] => {
-  return monthlyTotals.map((monthlyTotal, monthIndex) => {
-    const fill = BAR_COLORS[monthIndex % BAR_COLORS.length];
+const buildChartData = (items: CategoryBarChartItem[]): ChartDataPoint[] => {
+  return items.map((item, itemIndex) => {
+    const fill = BAR_COLORS[itemIndex % BAR_COLORS.length];
 
     return {
-      ...monthlyTotal,
+      ...item,
       fill,
       targetFill: invertHexColor(fill),
     };
@@ -83,8 +95,8 @@ const TargetMarker = ({ cx, cy, payload }: TargetMarkerProps) => {
   return (
     <g>
       <line
-        x1={cx - 40}
-        x2={cx + 40}
+        x1={cx - 32}
+        x2={cx + 32}
         y1={cy}
         y2={cy}
         stroke="#ffffff"
@@ -93,8 +105,8 @@ const TargetMarker = ({ cx, cy, payload }: TargetMarkerProps) => {
       />
 
       <line
-        x1={cx - 35}
-        x2={cx + 35}
+        x1={cx - 29}
+        x2={cx + 29}
         y1={cy}
         y2={cy}
         stroke={stroke}
@@ -105,12 +117,38 @@ const TargetMarker = ({ cx, cy, payload }: TargetMarkerProps) => {
   );
 };
 
-export const MonthlyBarChart = ({
-  title,
-  monthlyTotals,
-  showTargets = false,
-}: MonthlyBarChartProps) => {
-  const chartData = buildChartData(monthlyTotals);
+const ActualBar = (props: ActualBarProps) => {
+  const { x, y, width, height, payload } = props;
+
+  if (
+    typeof x !== "number" ||
+    typeof y !== "number" ||
+    typeof width !== "number" ||
+    typeof height !== "number"
+  ) {
+    return null;
+  }
+
+  return (
+    <rect
+      x={x}
+      y={y}
+      width={width}
+      height={height}
+      fill={payload?.fill ?? BAR_COLORS[0]}
+      stroke="#ffffff"
+      strokeWidth={1.5}
+      rx={2}
+    />
+  );
+};
+
+export const CategoryBarChart = ({ title, items }: CategoryBarChartProps) => {
+  const chartData = buildChartData(items);
+
+  if (chartData.length === 0) {
+    return null;
+  }
 
   return (
     <Paper sx={{ padding: 3, height: 500, paddingBottom: 5 }}>
@@ -120,7 +158,13 @@ export const MonthlyBarChart = ({
 
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={chartData}>
-          <XAxis dataKey="monthLabel" />
+          <XAxis
+            dataKey="categoryName"
+            interval={0}
+            angle={-25}
+            textAnchor="end"
+            height={80}
+          />
 
           <YAxis
             tickFormatter={(value) => {
@@ -133,56 +177,26 @@ export const MonthlyBarChart = ({
               return String(label);
             }}
             formatter={(value, name) => {
-              if (name === "monthLabel") {
-                return null;
-              }
-
               const label =
                 name === "actual"
                   ? "Actual"
                   : name === "target"
                     ? "Target"
-                    : name === "total"
-                      ? "Actual"
-                      : name === "targetTotal"
-                        ? "Target"
-                        : String(name);
+                    : name === "categoryName"
+                      ? ""
+                      : String(name);
+
+              if (name === "categoryName") {
+                return null;
+              }
 
               return [formatCurrency(Number(value ?? 0)), label];
             }}
           />
 
-          <Bar
-            dataKey="total"
-            name="Actual"
-            shape={(props) => {
-              const fill =
-                typeof props.payload?.fill === "string"
-                  ? props.payload.fill
-                  : BAR_COLORS[0];
+          <Bar dataKey="actual" name="Actual" shape={<ActualBar />} />
 
-              return (
-                <rect
-                  x={props.x}
-                  y={props.y}
-                  width={props.width}
-                  height={props.height}
-                  fill={fill}
-                  stroke="#ffffff"
-                  strokeWidth={1.5}
-                  rx={2}
-                />
-              );
-            }}
-          />
-
-          {showTargets ? (
-            <Scatter
-              dataKey="targetTotal"
-              name="Target"
-              shape={<TargetMarker />}
-            />
-          ) : null}
+          <Scatter dataKey="target" name="Target" shape={<TargetMarker />} />
 
           <ReferenceLine y={0} stroke="#94a3b8" />
         </ComposedChart>
@@ -190,3 +204,4 @@ export const MonthlyBarChart = ({
     </Paper>
   );
 };
+

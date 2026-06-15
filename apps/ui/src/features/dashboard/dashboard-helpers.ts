@@ -336,3 +336,46 @@ export const groupSmallCategories = (
 
   return [...largeCategories, { name: "Other", total: otherTotal }];
 };
+
+export const getCategoryActualTargetItems = (
+  budgets: Budget[],
+  transactions: DashboardTransaction[],
+  month: string,
+) => {
+  const monthProgressRatio = getMonthProgressRatio(month);
+
+  const actualByCategory = new Map<string, number>();
+
+  for (const transaction of transactions) {
+    const categoryName = transaction.category?.trim() || "Uncategorized";
+    const currentActual = actualByCategory.get(categoryName) ?? 0;
+
+    actualByCategory.set(
+      categoryName,
+      roundCurrency(currentActual + Math.abs(transaction.amount)),
+    );
+  }
+
+  const budgetByCategory = new Map<string, number>();
+
+  for (const budget of budgets) {
+    const currentBudget = budgetByCategory.get(budget.categoryName) ?? 0;
+
+    budgetByCategory.set(
+      budget.categoryName,
+      roundCurrency(currentBudget + budget.amount),
+    );
+  }
+
+  return Array.from(budgetByCategory.entries())
+    .map(([categoryName, budget]) => {
+      return {
+        categoryName,
+        actual: actualByCategory.get(categoryName) ?? 0,
+        target: roundCurrency(budget * monthProgressRatio),
+      };
+    })
+    .sort((first, second) => {
+      return second.actual - first.actual;
+    });
+};

@@ -26,9 +26,9 @@ import {
   getMonthlyTotals,
   getSubCategoryBudgetStatuses,
   getSubCategoryTotalsByCategory,
-  groupSmallCategories,
+  groupSmallCategories,getCategoryActualTargetItems,
 } from "./dashboard-helpers";
-
+import { CategoryBarChart } from "./category-bar-chart";
 import type { Transaction } from "../transactions/types";
 import type { Budget } from "../budgeting/types";
 import type { TransactionAllocation } from "../transactions/types";
@@ -103,7 +103,6 @@ export const DashboardPage = () => {
     const monthlyTotals = getMonthlyTotals(spendingTransactions);
 
     const availableMonths = getAvailableMonths(spendingTransactions);
-
     return {
       totalSpending,
       totalIncome,
@@ -136,6 +135,12 @@ export const DashboardPage = () => {
       transactionAllocations,
       selectedMonth,
     );
+
+  const categoryActualTargetItems = getCategoryActualTargetItems(
+    budgets,
+    allocatedMonthlySpendingTransactions,
+    selectedMonth,
+  );
 
   const allocatedMonthlyTotals = getAllocatedMonthlyTotals(
     dashboardData.availableMonths,
@@ -367,6 +372,20 @@ export const DashboardPage = () => {
           title="Allocated Monthly Spending"
           monthlyTotals={allocatedMonthlyTotals}
           showTargets
+        />
+      </Box>
+      <Box
+        sx={{
+          maxWidth: 1200,
+          marginLeft: "auto",
+          marginRight: "auto",
+          marginTop: 3,
+          marginBottom: 3,
+        }}
+      >
+        <CategoryBarChart
+          title="Category Spending vs Target"
+          items={categoryActualTargetItems}
         />
       </Box>
       <BudgetStatusTable
