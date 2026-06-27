@@ -13,6 +13,8 @@ const App = () => {
       "dashboard" | "budget" | "upload" | "transactions" | "categories" | "subCategories"
       >("dashboard");
 
+  const [transactionCategoryFilter, setTransactionCategoryFilter] = useState("");
+
   return (
       <Box sx={{ paddingTop: 2 }}>
         <Box sx={{ display: "flex", gap: 2, justifyContent: "center", flexWrap: "wrap" }}>
@@ -72,9 +74,21 @@ const App = () => {
           </Button>
         </Box>
 
-        {activePage === "dashboard" && <DashboardPage />}
+        {activePage === "dashboard" && (
+          <DashboardPage
+            onNavigateToCategory={(category) => {
+              setTransactionCategoryFilter(category);
+              setActivePage("transactions");
+            }}
+          />
+        )}
         {activePage === "budget" && <BudgetPage />}
-        {activePage === "transactions" && <TransactionsPage />}
+        {activePage === "transactions" && (
+          <TransactionsPage
+            initialCategory={transactionCategoryFilter}
+            onCategoryFilterChange={setTransactionCategoryFilter}
+          />
+        )}
         {activePage === "upload" && <TransactionUploadPage />}
         {activePage === "categories" && <CategoriesPage />}
         {activePage === "subCategories" && <SubCategoriesPage />}

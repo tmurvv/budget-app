@@ -42,7 +42,11 @@ const cardStyles = {
   textAlign: "center",
 } as const;
 
-export const DashboardPage = () => {
+export const DashboardPage = ({
+  onNavigateToCategory,
+}: {
+  onNavigateToCategory?: (category: string) => void;
+}) => {
   const [selectedMonthIndex, setSelectedMonthIndex] = useState<number | null>(
     null,
   );
@@ -386,6 +390,7 @@ export const DashboardPage = () => {
         <CategoryBarChart
           title="Category Spending vs Target"
           items={categoryActualTargetItems}
+          onCategoryClick={onNavigateToCategory}
         />
       </Box>
       <BudgetStatusTable

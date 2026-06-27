@@ -39,7 +39,7 @@ subCategoriesRoute.patch("/:id", async (request, response) => {
     return;
   }
 
-  await db.collection("subCategories").updateOne(
+  const result = await db.collection("subCategories").updateOne(
     { id },
     {
       $set: request.body,
@@ -62,6 +62,12 @@ subCategoriesRoute.patch("/:id", async (request, response) => {
       },
     );
   }
+  console.log("sub-category update result", {
+    id,
+    body: request.body,
+    matchedCount: result.matchedCount,
+    modifiedCount: result.modifiedCount,
+  });
 
   response.json({ status: "updated" });
 });
@@ -70,7 +76,11 @@ subCategoriesRoute.delete("/:id", async (request, response) => {
   const id = Number(request.params.id);
   const db = await connectMongo();
 
-  await db.collection("subCategories").deleteOne({ id });
+  const result = await db.collection("subCategories").deleteOne({ id });
 
-  response.json({ status: "deleted" });
+  response.json({
+    status: "deleted",
+    id,
+    deletedCount: result.deletedCount,
+  });
 });

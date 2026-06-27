@@ -39,6 +39,7 @@ type ChartDataPoint = CategoryBarChartItem & {
 type CategoryBarChartProps = {
   title: string;
   items: CategoryBarChartItem[];
+  onCategoryClick?: (category: string) => void;
 };
 
 type TargetMarkerProps = {
@@ -143,12 +144,14 @@ const ActualBar = (props: ActualBarProps) => {
   );
 };
 
-export const CategoryBarChart = ({ title, items }: CategoryBarChartProps) => {
+export const CategoryBarChart = ({ title, items, onCategoryClick }: CategoryBarChartProps) => {
   const chartData = buildChartData(items);
 
   if (chartData.length === 0) {
     return null;
   }
+
+  const isClickable = Boolean(onCategoryClick);
 
   return (
     <Paper sx={{ padding: 3, height: 500, paddingBottom: 5 }}>
@@ -157,7 +160,15 @@ export const CategoryBarChart = ({ title, items }: CategoryBarChartProps) => {
       </Typography>
 
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={chartData}>
+        <ComposedChart
+          data={chartData}
+          style={{ cursor: isClickable ? "pointer" : undefined }}
+          onClick={(data) => {
+            if (onCategoryClick && data?.activeLabel) {
+              onCategoryClick(String(data.activeLabel));
+            }
+          }}
+        >
           <XAxis
             dataKey="categoryName"
             interval={0}

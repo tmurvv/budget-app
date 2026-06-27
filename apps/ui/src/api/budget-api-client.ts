@@ -131,7 +131,7 @@ export const getBudgets = async () => {
 };
 
 export const getSubCategories = async () => {
-  const response = await fetch(`${API_BASE_URL}/budgets/sub-categories`);
+  const response = await fetch(`${API_BASE_URL}/sub-categories`);
 
   if (!response.ok) {
     throw new Error("Failed to fetch sub-categories");
@@ -139,7 +139,6 @@ export const getSubCategories = async () => {
 
   return response.json();
 };
-
 export const updateBudget = async (budgetId: number, amount: number) => {
   const response = await fetch(`${API_BASE_URL}/budgets/${budgetId}`, {
     method: "PATCH",

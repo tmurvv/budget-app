@@ -7,8 +7,16 @@ import { CategorySelect, SearchInput } from "../../components";
 import { TransactionTable } from "./TransactionTable";
 import type { Transaction } from "./types";
 
-export const TransactionsPage = () => {
-  const [selectedCategory, setSelectedCategory] = useState("");
+type TransactionsPageProps = {
+  initialCategory?: string;
+  onCategoryFilterChange?: (category: string) => void;
+};
+
+export const TransactionsPage = ({
+  initialCategory = "",
+  onCategoryFilterChange,
+}: TransactionsPageProps) => {
+  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [showUncategorizedOnly, setShowUncategorizedOnly] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -93,6 +101,7 @@ export const TransactionsPage = () => {
           useDarkStyles
           onChange={(value) => {
             setSelectedCategory(value);
+            onCategoryFilterChange?.(value);
           }}
         />
 

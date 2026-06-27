@@ -96,7 +96,12 @@ export const BudgetStatusTable = ({
           <Typography
             align="right"
             whiteSpace="nowrap"
-            color={budgetStatus.isOverBudget ? "error" : "text.primary"}
+            color={
+                budgetStatus.remaining < 0 &&
+                Math.abs(budgetStatus.remaining) / budgetStatus.budget > 0.05
+                    ? "error"
+                    : "text.primary"
+            }
           >
             {budgetStatus.isOverBudget
               ? `${formatCurrency(Math.abs(budgetStatus.remaining))} over`
