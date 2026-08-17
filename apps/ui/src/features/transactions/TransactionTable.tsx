@@ -20,19 +20,21 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import { CategorySelect, NotesInput } from "../../components";
-import { Transaction } from "./types";
+import { Transaction, TransactionAllocation } from "./types";
 import { SplitTransactionDialog } from "./split-transaction-dialog";
 import { DateTime } from "luxon";
 import { AddTransactionDialog } from "./add-transaction-dialog";
 import {
   deleteTransaction,
   getSubCategories,
+  getTransactionAllocations,
   saveTransactionSplit,
   updateTransaction,
   addRule,
@@ -101,6 +103,10 @@ export const TransactionTable = (props: TransactionTableProps) => {
     }>
   >([]);
 
+  const [transactionAllocations, setTransactionAllocations] = useState<
+    TransactionAllocation[]
+  >([]);
+
   useEffect(() => {
     const loadSubCategories = async () => {
       const loadedSubCategories = await getSubCategories();
@@ -108,7 +114,13 @@ export const TransactionTable = (props: TransactionTableProps) => {
       setSubCategories(loadedSubCategories);
     };
 
+    const loadAllocations = async () => {
+      const loaded = await getTransactionAllocations();
+      setTransactionAllocations(loaded);
+    };
+
     void loadSubCategories();
+    void loadAllocations();
   }, []);
 
   const getNextRulePriority = async () => {
@@ -155,6 +167,9 @@ export const TransactionTable = (props: TransactionTableProps) => {
     );
 
     await saveTransactionSplit(transactionId, allocations);
+
+    const refreshedAllocations = await getTransactionAllocations();
+    setTransactionAllocations(refreshedAllocations);
 
     setSplitTransaction(null);
   };
@@ -293,15 +308,37 @@ export const TransactionTable = (props: TransactionTableProps) => {
                 </TableCell>
 
                 <TableCell align="center">
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={() => {
-                      setSplitTransaction(transaction);
-                    }}
-                  >
-                    Split
-                  </Button>
+                  {(() => {
+                    const splits = transactionAllocations.filter(
+                      (a) => a.transactionId === transaction.id,
+                    );
+                    const hasSplit = splits.length > 0;
+                    const tooltipContent = hasSplit ? (
+                      <Box>
+                        <Typography variant="caption" display="block" sx={{ fontWeight: "bold", mb: 0.5 }}>
+                          Split across {splits.length} month{splits.length !== 1 ? "s" : ""}:
+                        </Typography>
+                        {splits.map((split) => (
+                          <Typography key={split.month} variant="caption" display="block">
+                            {split.month}: {formatCurrency(split.amount)}
+                          </Typography>
+                        ))}
+                      </Box>
+                    ) : "";
+                    return (
+                      <Tooltip title={tooltipContent} arrow disableHoverListener={!hasSplit}>
+                        <Button
+                          size="small"
+                          variant={hasSplit ? "contained" : "outlined"}
+                          onClick={() => {
+                            setSplitTransaction(transaction);
+                          }}
+                        >
+                          Split
+                        </Button>
+                      </Tooltip>
+                    );
+                  })()}
                 </TableCell>
 
                 <TableCell>
@@ -493,14 +530,14 @@ export const TransactionTable = (props: TransactionTableProps) => {
                 : ""
             }
             onChange={(event) => {
-              if (!editingTransaction) {
-                return;
-              }
+                if (!editingTransaction) {
+                    return;
+                }
 
-              setEditingTransaction({
-                ...editingTransaction,
-                date: event.target.value,
-              });
+                setEditingTransaction({
+                    ...editingTransaction,
+                    date: `${event.target.value}T06:00:00.000Z`,
+                });
             }}
             slotProps={{
               inputLabel: {
