@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Box, Button } from "@mui/material";
 
-import { CategoriesPage } from "./features/categories/CategoriesPage";
+import { CategoriesProvider } from "./context/CategoriesContext";
 import { SubCategoriesPage } from "./features/categories/SubCategoriesPage";
 import { BudgetPage } from "./features/budgeting/BudgetPage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
@@ -10,12 +10,13 @@ import { TransactionsPage } from "./features/transactions/TransactionsPage";
 
 const App = () => {
   const [activePage, setActivePage] = useState<
-      "dashboard" | "budget" | "upload" | "transactions" | "categories" | "subCategories"
+      "dashboard" | "budget" | "upload" | "transactions" | "subCategories"
       >("dashboard");
 
   const [transactionCategoryFilter, setTransactionCategoryFilter] = useState("");
 
   return (
+    <CategoriesProvider>
       <Box sx={{ paddingTop: 2 }}>
         <Box sx={{ display: "flex", gap: 2, justifyContent: "center", flexWrap: "wrap" }}>
           <Button
@@ -56,21 +57,12 @@ const App = () => {
           </Button>
 
           <Button
-              variant={activePage === "categories" ? "contained" : "outlined"}
-              onClick={() => {
-                setActivePage("categories");
-              }}
-          >
-            Categories
-          </Button>
-
-          <Button
               variant={activePage === "subCategories" ? "contained" : "outlined"}
               onClick={() => {
                 setActivePage("subCategories");
               }}
           >
-            Sub-categories
+           Categories
           </Button>
         </Box>
 
@@ -90,9 +82,9 @@ const App = () => {
           />
         )}
         {activePage === "upload" && <TransactionUploadPage />}
-        {activePage === "categories" && <CategoriesPage />}
         {activePage === "subCategories" && <SubCategoriesPage />}
       </Box>
+    </CategoriesProvider>
   );
 };
 

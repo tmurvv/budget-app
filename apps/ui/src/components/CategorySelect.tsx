@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
 import { FormControl, InputLabel, MenuItem, Select } from "@mui/material";
+import { startCase } from "lodash";
 
-import { getCategories } from "../api/budget-api-client";
+import { useCategories } from "../context/use-categories";
 
 const labelStyles = {
   color: "ivory",
@@ -23,11 +23,6 @@ const selectStyles = {
   },
 };
 
-type Category = {
-  id?: number;
-  name: string;
-};
-
 type CategorySelectProps = {
   label: string;
   value: string;
@@ -45,17 +40,7 @@ export const CategorySelect = (props: CategorySelectProps) => {
     useDarkStyles = false,
   } = props;
 
-  const [categories, setCategories] = useState<Category[]>([]);
-
-  useEffect(() => {
-    const loadCategories = async () => {
-      const loadedCategories = (await getCategories()) as Category[];
-
-      setCategories(loadedCategories);
-    };
-
-    void loadCategories();
-  }, []);
+  const { categories } = useCategories();
 
   const labelId = `${label.toLowerCase().replaceAll(" ", "-")}-label`;
 
@@ -85,9 +70,9 @@ export const CategorySelect = (props: CategorySelectProps) => {
 
         <MenuItem value="No Category">No Category</MenuItem>
 
-        {categories.map((category) => (
-          <MenuItem key={category.id} value={category.name}>
-            {category.name}
+        {Array.from(categories).sort().map((categoryName) => (
+          <MenuItem key={categoryName} value={categoryName}>
+            {startCase(categoryName)}
           </MenuItem>
         ))}
       </Select>

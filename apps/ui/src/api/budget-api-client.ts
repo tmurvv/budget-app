@@ -15,14 +15,12 @@ export const getTransactions = async () => {
 
 export const migrateIndexedDbData = async ({
   transactions,
-  categories,
   subCategories,
   categoryRules,
   budgets,
   transactionAllocations,
 }: {
   transactions: Transaction[];
-  categories: unknown[];
   subCategories: unknown[];
   categoryRules: unknown[];
   budgets: unknown[];
@@ -35,7 +33,6 @@ export const migrateIndexedDbData = async ({
     },
     body: JSON.stringify({
       transactions,
-      categories,
       subCategories,
       categoryRules,
       budgets,
@@ -175,59 +172,6 @@ export const addBudget = async (budget: {
 
   return response.json();
 };
-export const getCategories = async () => {
-  const response = await fetch(`${API_BASE_URL}/categories`);
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch categories");
-  }
-
-  return response.json();
-};
-
-export const addCategory = async (category: { id: number; name: string }) => {
-  const response = await fetch(`${API_BASE_URL}/categories`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(category),
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to add category");
-  }
-
-  return response.json();
-};
-
-export const updateCategory = async (
-  categoryId: number,
-  updates: Record<string, unknown>,
-) => {
-  const response = await fetch(`${API_BASE_URL}/categories/${categoryId}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(updates),
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to update category");
-  }
-};
-
-export const deleteCategory = async (categoryId: number) => {
-  const response = await fetch(`${API_BASE_URL}/categories/${categoryId}`, {
-    method: "DELETE",
-  });
-
-  if (!response.ok) {
-    throw new Error("Failed to delete category");
-  }
-};
-
 export const addSubCategory = async (subCategory: {
   id: number;
   categoryName: string;

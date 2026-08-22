@@ -30,7 +30,7 @@ export const ConfirmDialog = (props: ConfirmDialogProps) => {
 
     return (
         <Dialog open={open} onClose={onCancel}>
-            <DialogTitle>{title}</DialogTitle>
+            <DialogTitle sx={{ color: "#1565c0" }}>{title}</DialogTitle>
 
             <DialogContent>
                 <Typography>{message}</Typography>

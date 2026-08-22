@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   Delete as DeleteIcon,
   Edit as EditIcon,
+  Refresh as RefreshIcon,
 } from "@mui/icons-material";
 import {
   Box,
@@ -18,21 +19,17 @@ import {
   Paper,
   Typography,
 } from "@mui/material";
+import { startCase } from "lodash";
 
 import { AppAlert, ConfirmDialog, TextInput } from "../../components";
+import { useCategories } from "../../context/use-categories";
 import {
   addSubCategory,
   deleteSubCategory,
-  getCategories,
   getSubCategories,
   getTransactions,
   updateSubCategory,
 } from "../../api/budget-api-client";
-
-type Category = {
-  id?: number;
-  name: string;
-};
 
 type SubCategory = {
   id?: number;
@@ -59,6 +56,7 @@ const getNextSubCategoryId = (subCategories: Array<{ id?: number }>) => {
 };
 
 export const SubCategoriesPage = () => {
+  const { categories, refresh: refreshCategories } = useCategories();
   const [selectedCategoryName, setSelectedCategoryName] = useState("");
   const [newSubCategoryName, setNewSubCategoryName] = useState("");
 
@@ -73,16 +71,18 @@ export const SubCategoriesPage = () => {
   const [subCategoryToRename, setSubCategoryToRename] =
       useState<SubCategoryToRename | null>(null);
 
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
 
-  useEffect(() => {
-    const loadCategories = async () => {
-      const loadedCategories = (await getCategories()) as Category[];
-      setCategories(loadedCategories);
-    };
+  const [hasTransactionsDialogOpen, setHasTransactionsDialogOpen] = useState(false);
+  const [transactionCountForDelete, setTransactionCountForDelete] = useState(0);
+  const [subCategoryToMarkInactive, setSubCategoryToMarkInactive] = useState<SubCategoryToDelete | null>(null);
 
-    void loadCategories();
-  }, []);
+  const [lastSubCategoryDialogOpen, setLastSubCategoryDialogOpen] = useState(false);
+  const [lastSubCategoryToDelete, setLastSubCategoryToDelete] = useState<SubCategoryToDelete | null>(null);
+
+  const [errorModalOpen, setErrorModalOpen] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState("");
 
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -108,10 +108,20 @@ export const SubCategoriesPage = () => {
   }, [selectedCategoryName, refreshKey]);
 
   const handleAddSubCategory = async () => {
-    const trimmed = newSubCategoryName.trim();
+    const trimmed = newSubCategoryName.trim().toLowerCase();
 
     if (!selectedCategoryName || !trimmed) {
       return;
+    }
+
+    const existingSubCategory = subCategories.find(
+     (sc) => sc.name.toLowerCase() === trimmed
+    );
+
+    if (existingSubCategory) {
+     setErrorModalMessage(`Sub-category "${trimmed}" already exists in this category.`);
+     setErrorModalOpen(true);
+     return;
     }
 
     try {
@@ -155,11 +165,19 @@ export const SubCategoriesPage = () => {
     }).length;
 
     if (usageCount > 0) {
-      setAlertMessage(
-        `Cannot delete "${subCategoryToDelete.name}". It is used by ${usageCount} transactions.`,
-      );
-      setConfirmOpen(false);
-      setSubCategoryToDelete(null);
+      handleCancelDelete();
+      setTransactionCountForDelete(usageCount);
+      setSubCategoryToMarkInactive(subCategoryToDelete);
+      setHasTransactionsDialogOpen(true);
+      return;
+    }
+
+    const isLastSubCategory = subCategories.length === 1;
+
+    if (isLastSubCategory) {
+      handleCancelDelete();
+      setLastSubCategoryToDelete(subCategoryToDelete);
+      setLastSubCategoryDialogOpen(true);
       return;
     }
 
@@ -172,6 +190,7 @@ export const SubCategoriesPage = () => {
     setConfirmOpen(false);
     setSubCategoryToDelete(null);
     setAlertMessage("");
+    refreshCategories();
   };
 
   const handleCancelDelete = () => {
@@ -238,11 +257,126 @@ export const SubCategoriesPage = () => {
     setAlertMessage("");
   };
 
+  const handleMarkInactive = async () => {
+    if (!subCategoryToMarkInactive) {
+      return;
+    }
+
+    await updateSubCategory(subCategoryToMarkInactive.id, {
+      inactive: true,
+    });
+
+    setHasTransactionsDialogOpen(false);
+    setSubCategoryToMarkInactive(null);
+    setTransactionCountForDelete(0);
+    setRefreshKey((currentRefreshKey) => {
+      return currentRefreshKey + 1;
+    });
+    refreshCategories();
+  };
+
+  const handleCancelMarkInactive = () => {
+    setHasTransactionsDialogOpen(false);
+    setSubCategoryToMarkInactive(null);
+    setTransactionCountForDelete(0);
+  };
+
+  const handleLastSubCategoryDeleteCategory = async () => {
+    if (!lastSubCategoryToDelete) {
+      return;
+    }
+
+    await deleteSubCategory(lastSubCategoryToDelete.id);
+
+    setLastSubCategoryDialogOpen(false);
+    setLastSubCategoryToDelete(null);
+    setRefreshKey((currentRefreshKey) => {
+      return currentRefreshKey + 1;
+    });
+    refreshCategories();
+    setSelectedCategoryName("");
+  };
+
+  const handleLastSubCategoryRenameToNoSelection = async () => {
+    if (!lastSubCategoryToDelete) {
+      return;
+    }
+
+    await updateSubCategory(lastSubCategoryToDelete.id, {
+      name: "No Selection",
+    });
+
+    setLastSubCategoryDialogOpen(false);
+    setLastSubCategoryToDelete(null);
+    setRefreshKey((currentRefreshKey) => {
+      return currentRefreshKey + 1;
+    });
+  };
+
+  const handleLastSubCategoryCancelDelete = () => {
+    setLastSubCategoryDialogOpen(false);
+    setLastSubCategoryToDelete(null);
+  };
+
+  const handleAddCategory = async () => {
+    const trimmed = newCategoryName.trim().toLowerCase();
+
+    if (!trimmed) {
+      setAlertMessage("Category name cannot be empty.");
+      return;
+    }
+
+    const existingCategory = Array.from(categories).find(
+      (cat) => cat.toLowerCase() === trimmed
+    );
+
+    if (existingCategory) {
+      setErrorModalMessage(`Category "${trimmed}" already exists.`);
+      setErrorModalOpen(true);
+      return;
+    }
+
+    try {
+      await addSubCategory({
+        id: getNextSubCategoryId(subCategories),
+        categoryName: trimmed,
+        name: "No Selection",
+      });
+
+      setNewCategoryName("");
+      setAlertMessage("");
+      setAddCategoryDialogOpen(false);
+      setRefreshKey((currentRefreshKey) => {
+        return currentRefreshKey + 1;
+      });
+      refreshCategories();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to add category";
+      setAlertMessage(message);
+    }
+  };
+
   return (
     <Box sx={{ padding: 4 }}>
-      <Typography variant="h4" gutterBottom align="center">
-        Sub-categories
-      </Typography>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 2, marginBottom: 2 }}>
+        <Typography variant="h4">
+          Categories
+        </Typography>
+        <IconButton
+          size="small"
+          color="primary"
+          onClick={() => {
+            setSelectedCategoryName("");
+            setRefreshKey((currentRefreshKey) => {
+              return currentRefreshKey + 1;
+            });
+            refreshCategories();
+          }}
+        >
+          <RefreshIcon />
+        </IconButton>
+      </Box>
 
       <Box sx={{ maxWidth: 700, marginLeft: "auto", marginRight: "auto" }}>
         <AppAlert
@@ -262,17 +396,34 @@ export const SubCategoriesPage = () => {
       >
         <Paper>
           <List>
-            {categories.map((category) => (
+            <ListItemButton
+              onClick={() => {
+                setAddCategoryDialogOpen(true);
+              }}
+              sx={{
+                backgroundColor: "rgba(25, 118, 210, 0.12)",
+                "&:hover": {
+                  backgroundColor: "rgba(25, 118, 210, 0.22)",
+                },
+              }}
+            >
+              <ListItemText
+                primary="+Add Category"
+                sx={{ fontStyle: "italic", color: "rgba(25, 118, 210, 0.7)" }}
+              />
+            </ListItemButton>
+
+            {Array.from(categories).sort().map((categoryName) => (
               <ListItemButton
-                key={category.id}
-                selected={selectedCategoryName === category.name}
+                key={categoryName}
+                selected={selectedCategoryName === categoryName}
                 onClick={() => {
-                  setSelectedCategoryName(category.name);
+                  setSelectedCategoryName(categoryName);
                   setAlertMessage("");
                   setNewSubCategoryName("");
                 }}
               >
-                <ListItemText primary={category.name} />
+                <ListItemText primary={startCase(categoryName)} />
               </ListItemButton>
             ))}
           </List>
@@ -299,7 +450,7 @@ export const SubCategoriesPage = () => {
 
           <Typography variant="h6" gutterBottom>
             {selectedCategoryName
-              ? `${selectedCategoryName} sub-categories`
+              ? `${startCase(selectedCategoryName)} sub-categories`
               : "Select a category"}
           </Typography>
 
@@ -328,7 +479,7 @@ export const SubCategoriesPage = () => {
                   </Box>
                 }
               >
-                <ListItemText primary={subCategory.name} />
+                <ListItemText primary={startCase(subCategory.name)} />
               </ListItem>
             ))}
           </List>
@@ -338,7 +489,7 @@ export const SubCategoriesPage = () => {
       <ConfirmDialog
         open={confirmOpen}
         title="Delete sub-category"
-        message={`Are you sure you want to delete "${subCategoryToDelete?.name}"?`}
+        message={`Are you sure you want to delete "${subCategoryToDelete?.name ? startCase(subCategoryToDelete.name) : ''}"?`}
         confirmButtonText="Delete"
         onConfirm={() => {
           void handleConfirmDelete();
@@ -369,6 +520,118 @@ export const SubCategoriesPage = () => {
             }}
           >
             Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={addCategoryDialogOpen} onClose={() => setAddCategoryDialogOpen(false)}>
+        <DialogTitle sx={{ color: "#1976d2" }}>Add Category</DialogTitle>
+
+        <DialogContent>
+          <Box sx={{ paddingTop: 1 }}>
+            <TextInput
+              label="Category name"
+              value={newCategoryName}
+              onChange={setNewCategoryName}
+            />
+          </Box>
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={() => {
+            setAddCategoryDialogOpen(false);
+            setNewCategoryName("");
+          }}>Cancel</Button>
+
+          <Button
+            variant="contained"
+            onClick={() => {
+              void handleAddCategory();
+            }}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={hasTransactionsDialogOpen} onClose={handleCancelMarkInactive}>
+        <DialogTitle sx={{ color: "#1976d2" }}>Sub-category in Use</DialogTitle>
+
+        <DialogContent>
+          <Box sx={{ paddingTop: 1 }}>
+            <Typography>
+              This sub-category is used by {transactionCountForDelete} transaction(s). You can mark it as inactive or reassign those transactions first.
+            </Typography>
+          </Box>
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={handleCancelMarkInactive}>Cancel</Button>
+
+          <Button
+            variant="contained"
+            onClick={() => {
+              void handleMarkInactive();
+            }}
+          >
+            Mark Inactive
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={lastSubCategoryDialogOpen} onClose={handleLastSubCategoryCancelDelete}>
+        <DialogTitle sx={{ color: "#1976d2" }}>Delete Sub-category</DialogTitle>
+
+        <DialogContent>
+          <Box sx={{ paddingTop: 1 }}>
+            <Typography>
+              This is the last sub-category. Delete the category also?
+            </Typography>
+          </Box>
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={handleLastSubCategoryCancelDelete}>Cancel</Button>
+
+          <Button
+            onClick={() => {
+              void handleLastSubCategoryRenameToNoSelection();
+            }}
+          >
+            No
+          </Button>
+
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              void handleLastSubCategoryDeleteCategory();
+            }}
+          >
+            Yes
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={errorModalOpen} onClose={() => setErrorModalOpen(false)}>
+        <DialogTitle sx={{ color: "#1976d2" }}>Error</DialogTitle>
+
+        <DialogContent>
+          <Box sx={{ paddingTop: 1 }}>
+            <Typography>
+              {errorModalMessage}
+            </Typography>
+          </Box>
+        </DialogContent>
+
+        <DialogActions>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setErrorModalOpen(false);
+            }}
+          >
+            OK
           </Button>
         </DialogActions>
       </Dialog>
