@@ -7,10 +7,11 @@ import { BudgetPage } from "./features/budgeting/BudgetPage";
 import { DashboardPage } from "./features/dashboard/DashboardPage";
 import { TransactionUploadPage } from "./features/transactions/TransactionUploadPage";
 import { TransactionsPage } from "./features/transactions/TransactionsPage";
+import { AllocationsPage } from "./features/allocations/AllocationsPage";
 
 const App = () => {
   const [activePage, setActivePage] = useState<
-      "dashboard" | "budget" | "upload" | "transactions" | "subCategories"
+      "dashboard" | "budget" | "upload" | "transactions" | "subCategories" | "allocations"
       >("dashboard");
 
   const [transactionCategoryFilter, setTransactionCategoryFilter] = useState("");
@@ -64,6 +65,15 @@ const App = () => {
           >
            Categories
           </Button>
+
+          <Button
+              variant={activePage === "allocations" ? "contained" : "outlined"}
+              onClick={() => {
+                setActivePage("allocations");
+              }}
+          >
+            Allocations
+          </Button>
         </Box>
 
         {activePage === "dashboard" && (
@@ -83,6 +93,7 @@ const App = () => {
         )}
         {activePage === "upload" && <TransactionUploadPage />}
         {activePage === "subCategories" && <SubCategoriesPage />}
+        {activePage === "allocations" && <AllocationsPage />}
       </Box>
     </CategoriesProvider>
   );

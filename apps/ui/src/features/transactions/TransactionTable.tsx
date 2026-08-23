@@ -335,7 +335,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
                             setSplitTransaction(transaction);
                           }}
                         >
-                          Split
+                          Allocate
                         </Button>
                       </Tooltip>
                     );

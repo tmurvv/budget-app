@@ -28,7 +28,7 @@ export const SplitTransactionDialog = (props: SplitTransactionDialogProps) => {
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
-      <DialogTitle>Split Transaction</DialogTitle>
+      <DialogTitle sx={{ color: "#1976d2" }}>Allocate Transaction</DialogTitle>
 
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
