@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { startCase } from "lodash";
 import {
   Button,
   Dialog,
@@ -172,7 +173,7 @@ export const AddTransactionDialog = ({
             {getSubCategoryOptions(manualTransaction.category).map(
               (subCategory) => (
                 <MenuItem key={subCategory} value={subCategory}>
-                  {subCategory}
+                  {startCase(subCategory)}
                 </MenuItem>
               ),
             )}

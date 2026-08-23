@@ -4,6 +4,7 @@ import type {
   NameType,
   ValueType,
 } from "recharts/types/component/DefaultTooltipContent";
+import { startCase } from "lodash";
 
 import {
   formatCompactCurrency,
@@ -98,7 +99,7 @@ const CustomPieTooltip = ({
           marginBottom: 1,
         }}
       >
-        {categoryName} — {formatCurrency(value)}
+        {startCase(categoryName)} — {formatCurrency(value)}
       </Typography>
 
       {subCategories.slice(0, 6).map((subCategory) => (
@@ -110,7 +111,7 @@ const CustomPieTooltip = ({
             fontSize: 12,
           }}
         >
-          <span>{subCategory.name}</span>
+          <span>{startCase(subCategory.name)}</span>
 
           <span>{formatCurrency(subCategory.total)}</span>
         </Box>
@@ -196,7 +197,7 @@ export const CategoryPieChart = ({
             nameKey="name"
             outerRadius={130}
             label={({ name, value }) =>
-              `${name} ${formatCompactCurrency(Number(value))}`
+              `${startCase(String(name))} ${formatCompactCurrency(Number(value))}`
             }
             labelLine
             shape={(props) => {

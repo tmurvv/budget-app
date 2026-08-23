@@ -11,6 +11,7 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
+import { startCase } from "lodash";
 
 import { getRules } from "../../api/budget-api-client";
 import type { CategoryRule } from "./types";
@@ -53,8 +54,8 @@ export const ViewRules = () => {
             {rules.map((rule) => (
               <TableRow key={rule.id}>
                 <TableCell>{rule.matchValue}</TableCell>
-                <TableCell>{rule.categoryName}</TableCell>
-                <TableCell>{rule.subCategoryName || "-"}</TableCell>
+                <TableCell>{startCase(rule.categoryName)}</TableCell>
+                <TableCell>{rule.subCategoryName ? startCase(rule.subCategoryName) : "-"}</TableCell>
                 <TableCell align="right">{rule.priority}</TableCell>
                 <TableCell>
                   <Chip

@@ -5,6 +5,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
+import { startCase } from "lodash";
 
 import { formatCurrency } from "./dashboard-formatters";
 import type { BudgetStatus, BudgetViewMode } from "./dashboard-types";
@@ -81,8 +82,8 @@ export const BudgetStatusTable = ({
         >
           <Typography>
             {budgetViewMode === "category"
-              ? budgetStatus.categoryName
-              : `${budgetStatus.categoryName} / ${budgetStatus.subCategoryName}`}
+              ? startCase(budgetStatus.categoryName)
+              : `${startCase(budgetStatus.categoryName)} / ${startCase(budgetStatus.subCategoryName)}`}
           </Typography>
 
           <Typography align="right">

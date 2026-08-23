@@ -26,6 +26,7 @@ import {
 import RefreshIcon from "@mui/icons-material/Refresh";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
+import { startCase } from "lodash";
 import { CategorySelect, NotesInput } from "../../components";
 import { Transaction, TransactionAllocation } from "./types";
 import { SplitTransactionDialog } from "./split-transaction-dialog";
@@ -301,10 +302,10 @@ export const TransactionTable = (props: TransactionTableProps) => {
                   {formatCurrency(transaction.amount)}
                 </TableCell>
 
-                <TableCell>{getDisplayValue(transaction.category)}</TableCell>
+                <TableCell>{getDisplayValue(transaction.category) && startCase(getDisplayValue(transaction.category))}</TableCell>
 
                 <TableCell>
-                  {getDisplayValue(transaction.subCategory)}
+                  {getDisplayValue(transaction.subCategory) && startCase(getDisplayValue(transaction.subCategory))}
                 </TableCell>
 
                 <TableCell align="center">
@@ -440,7 +441,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
                 (subCategory) => {
                   return (
                     <MenuItem key={subCategory} value={subCategory}>
-                      {subCategory}
+                      {startCase(subCategory)}
                     </MenuItem>
                   );
                 },
@@ -626,7 +627,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
               {getSubCategoryOptions(editingTransaction?.category).map(
                 (subCategory) => (
                   <MenuItem key={subCategory} value={subCategory}>
-                    {subCategory}
+                    {startCase(subCategory)}
                   </MenuItem>
                 ),
               )}

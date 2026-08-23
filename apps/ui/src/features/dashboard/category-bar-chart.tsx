@@ -9,6 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { startCase } from "lodash";
 
 import { formatCurrency, roundCurrency } from "./dashboard-formatters";
 
@@ -175,6 +176,7 @@ export const CategoryBarChart = ({ title, items, onCategoryClick }: CategoryBarC
             angle={-25}
             textAnchor="end"
             height={80}
+            tickFormatter={(value) => startCase(String(value))}
           />
 
           <YAxis
@@ -185,7 +187,7 @@ export const CategoryBarChart = ({ title, items, onCategoryClick }: CategoryBarC
 
           <Tooltip
             labelFormatter={(label) => {
-              return String(label);
+              return startCase(String(label));
             }}
             formatter={(value, name) => {
               const label =

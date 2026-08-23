@@ -7,6 +7,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useEffect, useState } from "react";
+import { startCase } from "lodash";
 
 import {
   addBudget,
@@ -221,7 +222,7 @@ export const BudgetPage = () => {
                   }}
                 >
                   <Typography>
-                    {subCategory.categoryName} / {subCategory.name}
+                    {startCase(subCategory.categoryName)} / {startCase(subCategory.name)}
                   </Typography>
 
                   <TextField
