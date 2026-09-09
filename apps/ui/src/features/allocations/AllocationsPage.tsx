@@ -10,6 +10,9 @@ import {
   TableRow,
   Tooltip,
   Typography,
+  TableSortLabel,
+  FormControlLabel,
+  Checkbox,
 } from "@mui/material";
 import { DateTime } from "luxon";
 import CheckCircleOutlinedIcon from "@mui/icons-material/CheckCircleOutlined";
@@ -33,6 +36,10 @@ type AllocationRow = {
   isPaidOff: boolean;
 };
 
+type SortKey = keyof AllocationRow;
+
+type SortDirection = "asc" | "desc";
+
 const formatCurrency = (amount: number) => {
   return amount.toLocaleString(undefined, {
     style: "currency",
@@ -50,6 +57,37 @@ const formatDate = (date: string) => {
   return `${month}/${day}/${year}`;
 };
 
+const sortRows = (
+  rows: AllocationRow[],
+  sortKey: SortKey,
+  direction: SortDirection,
+): AllocationRow[] => {
+  const sorted = [...rows].sort((a, b) => {
+    const aValue = a[sortKey];
+    const bValue = b[sortKey];
+
+    if (typeof aValue === "string" && typeof bValue === "string") {
+      return direction === "asc"
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue);
+    }
+
+    if (typeof aValue === "number" && typeof bValue === "number") {
+      return direction === "asc" ? aValue - bValue : bValue - aValue;
+    }
+
+    if (typeof aValue === "boolean" && typeof bValue === "boolean") {
+      return direction === "asc"
+        ? Number(aValue) - Number(bValue)
+        : Number(bValue) - Number(aValue);
+    }
+
+    return 0;
+  });
+
+  return sorted;
+};
+
 const getCurrentMonth = () => {
   return DateTime.now().toFormat("yyyy-MM");
 };
@@ -57,6 +95,9 @@ const getCurrentMonth = () => {
 export const AllocationsPage = () => {
   const [allocationRows, setAllocationRows] = useState<AllocationRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortKey, setSortKey] = useState<SortKey>("date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [hidePaidOff, setHidePaidOff] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -138,6 +179,21 @@ export const AllocationsPage = () => {
     void loadData();
   }, []);
 
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDirection("asc");
+    }
+  };
+
+  const sortedRows = sortRows(allocationRows, sortKey, sortDirection);
+
+  const filteredRows = hidePaidOff
+    ? sortedRows.filter((row) => !row.isPaidOff)
+    : sortedRows;
+
   const totalAmountRemaining = allocationRows.reduce(
     (sum, row) => sum + row.amountRemaining,
     0,
@@ -162,6 +218,18 @@ export const AllocationsPage = () => {
         Allocations
       </Typography>
 
+      <Box sx={{ marginBottom: 2 }}>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={hidePaidOff}
+              onChange={(e) => setHidePaidOff(e.target.checked)}
+            />
+          }
+          label="Hide paid off allocations"
+        />
+      </Box>
+
       <TableContainer
         component={Paper}
         sx={{
@@ -171,19 +239,89 @@ export const AllocationsPage = () => {
         <Table size="small">
           <TableHead>
             <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell>Date</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell align="right">Amount</TableCell>
-              <TableCell align="right">Allocated per Month</TableCell>
-              <TableCell align="right">Number of Months</TableCell>
-              <TableCell align="right">Months Remaining</TableCell>
-              <TableCell align="right">Amount Remaining</TableCell>
-              <TableCell align="center">Paid Off</TableCell>
+              <TableCell sortDirection={sortKey === "date" ? sortDirection : false}>
+                <TableSortLabel
+                  active={sortKey === "date"}
+                  direction={sortDirection}
+                  onClick={() => handleSort("date")}
+                >
+                  Date
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sortDirection={sortKey === "description" ? sortDirection : false}>
+                <TableSortLabel
+                  active={sortKey === "description"}
+                  direction={sortDirection}
+                  onClick={() => handleSort("description")}
+                >
+                  Description
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sortDirection={sortKey === "amount" ? sortDirection : false}>
+                <TableSortLabel
+                  active={sortKey === "amount"}
+                  direction={sortDirection}
+                  onClick={() => handleSort("amount")}
+                  sx={{ justifyContent: "flex-end" }}
+                >
+                  Amount
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sortDirection={sortKey === "allocatedPerMonth" ? sortDirection : false}>
+                <TableSortLabel
+                  active={sortKey === "allocatedPerMonth"}
+                  direction={sortDirection}
+                  onClick={() => handleSort("allocatedPerMonth")}
+                  sx={{ justifyContent: "flex-end" }}
+                >
+                  Allocated per Month
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sortDirection={sortKey === "numberOfMonths" ? sortDirection : false}>
+                <TableSortLabel
+                  active={sortKey === "numberOfMonths"}
+                  direction={sortDirection}
+                  onClick={() => handleSort("numberOfMonths")}
+                  sx={{ justifyContent: "flex-end" }}
+                >
+                  Number of Months
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sortDirection={sortKey === "monthsRemaining" ? sortDirection : false}>
+                <TableSortLabel
+                  active={sortKey === "monthsRemaining"}
+                  direction={sortDirection}
+                  onClick={() => handleSort("monthsRemaining")}
+                  sx={{ justifyContent: "flex-end" }}
+                >
+                  Months Remaining
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sortDirection={sortKey === "amountRemaining" ? sortDirection : false}>
+                <TableSortLabel
+                  active={sortKey === "amountRemaining"}
+                  direction={sortDirection}
+                  onClick={() => handleSort("amountRemaining")}
+                  sx={{ justifyContent: "flex-end" }}
+                >
+                  Amount Remaining
+                </TableSortLabel>
+              </TableCell>
+              <TableCell sortDirection={sortKey === "isPaidOff" ? sortDirection : false}>
+                <TableSortLabel
+                  active={sortKey === "isPaidOff"}
+                  direction={sortDirection}
+                  onClick={() => handleSort("isPaidOff")}
+                  sx={{ justifyContent: "center" }}
+                >
+                  Paid Off
+                </TableSortLabel>
+              </TableCell>
             </TableRow>
           </TableHead>
 
           <TableBody>
-            {allocationRows.map((row) => (
+            {filteredRows.map((row) => (
               <TableRow key={row.transactionId}>
                 <TableCell>{formatDate(row.date)}</TableCell>
                 <TableCell>
@@ -195,18 +333,18 @@ export const AllocationsPage = () => {
                     row.description
                   )}
                 </TableCell>
-                <TableCell align="right">
+                <TableCell sx={{ textAlign: "right" }}>
                   {formatCurrency(row.amount)}
                 </TableCell>
-                <TableCell align="right">
+                <TableCell sx={{ textAlign: "right" }}>
                   {formatCurrency(row.allocatedPerMonth)}
                 </TableCell>
-                <TableCell align="right">{row.numberOfMonths}</TableCell>
-                <TableCell align="right">{row.monthsRemaining}</TableCell>
-                <TableCell align="right">
+                <TableCell sx={{ textAlign: "right" }}>{row.numberOfMonths}</TableCell>
+                <TableCell sx={{ textAlign: "right" }}>{row.monthsRemaining}</TableCell>
+                <TableCell sx={{ textAlign: "right" }}>
                   {formatCurrency(row.amountRemaining)}
                 </TableCell>
-                <TableCell align="center">
+                <TableCell sx={{ textAlign: "center" }}>
                   {row.isPaidOff && (
                     <CheckCircleOutlinedIcon
                       sx={{

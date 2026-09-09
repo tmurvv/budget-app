@@ -45,7 +45,7 @@ export const TransactionUploadPage = () => {
       const result = await importTransactionsFromCsvFile(selectedFile);
 
       setSummaryText(
-        `Imported ${result.insertedCount} new. Skipped ${result.duplicateCount} duplicates. Skipped ${result.notPostedTransactions.length} not posted (${result.totalRowCount} rows).`,
+        `Imported ${result.insertedCount} new. Skipped ${result.duplicateCount} duplicates.`,
       );
 
       setZeroRewardTransactions(

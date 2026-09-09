@@ -472,17 +472,11 @@ export const importTransactionsFromCsvFile = async (
       })
     : [];
 
-  const postedTransactions = bankFormatConfig.supportsPostedDate
-    ? normalizedTransactions.filter((transaction) => {
-        return transaction.raw?.["Posted Date"] !== "-";
-      })
-    : normalizedTransactions;
-
   const { dedupedTransactions, duplicateCount } =
-    dedupeTransactions(postedTransactions);
+    dedupeTransactions(normalizedTransactions);
 
   const zeroRewardTransactions = buildZeroRewardTransactions(
-    postedTransactions,
+    normalizedTransactions,
     bankFormatConfig,
   );
 
