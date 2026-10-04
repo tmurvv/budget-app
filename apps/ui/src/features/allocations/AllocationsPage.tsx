@@ -125,7 +125,7 @@ export const AllocationsPage = () => {
   const [editingAllocation, setEditingAllocation] = useState<AllocationRow | null>(null);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [_, setAllocationsByTransaction] = useState<Map<number, TransactionAllocation[]>>(new Map());
-  const [_, setSubCategories] = useState<
+  const [__, setSubCategories] = useState<
     Array<{
       id?: number;
       categoryName: string;
@@ -339,8 +339,8 @@ export const AllocationsPage = () => {
   const filteredRows = sortedRows.filter((row) => {
     if (!showPaidOff && row.isPaidOff) return false;
     if (selectedCategory && row.category !== selectedCategory) return false;
-    if (selectedSubCategory && row.subCategory !== selectedSubCategory) return false;
-    return true;
+    return !(selectedSubCategory && row.subCategory !== selectedSubCategory)
+
   });
 
   const totalAmountRemaining = filteredRows.reduce(
