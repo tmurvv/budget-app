@@ -1,7 +1,7 @@
 import { FormControl, InputLabel, MenuItem, Select } from "@mui/material";
+import { useEffect, useState } from "react";
 import { startCase } from "lodash";
-
-import { useCategories } from "../context/use-categories";
+import { getSubCategories } from "../api/budget-api-client";
 
 const labelStyles = {
   color: "#b0b0b0",
@@ -23,24 +23,52 @@ const selectStyles = {
   },
 };
 
-type CategorySelectProps = {
+type SubcategorySelectProps = {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  selectedCategory?: string;
   minWidth?: number;
   useDarkStyles?: boolean;
 };
 
-export const CategorySelect = (props: CategorySelectProps) => {
+export const SubcategorySelect = (props: SubcategorySelectProps) => {
   const {
     label,
     value,
     onChange,
+    selectedCategory = "",
     minWidth = 220,
     useDarkStyles = false,
   } = props;
 
-  const { categories } = useCategories();
+  const [subCategories, setSubCategories] = useState<
+    Array<{ categoryName: string; name: string }>
+  >([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadSubCategories = async () => {
+      try {
+        const data = await getSubCategories();
+        setSubCategories(data);
+      } catch (error) {
+        console.error("Failed to load subcategories:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadSubCategories();
+  }, []);
+
+  const filteredSubCategories = selectedCategory
+    ? subCategories.filter((sc) => sc.categoryName === selectedCategory)
+    : subCategories;
+
+  const uniqueSubCategories = Array.from(
+    new Set(filteredSubCategories.map((sc) => sc.name))
+  ).sort();
 
   const labelId = `${label.toLowerCase().replaceAll(" ", "-")}-label`;
 
@@ -63,16 +91,15 @@ export const CategorySelect = (props: CategorySelectProps) => {
         }}
         sx={useDarkStyles ? selectStyles : undefined}
         size="small"
+        disabled={loading}
       >
         <MenuItem value="">
-          <em>Unassigned</em>
+          <em>All</em>
         </MenuItem>
 
-        <MenuItem value="No Category">No Category</MenuItem>
-
-        {Array.from(categories).sort().map((categoryName) => (
-          <MenuItem key={categoryName} value={categoryName}>
-            {startCase(categoryName)}
+        {uniqueSubCategories.map((subCategoryName) => (
+          <MenuItem key={subCategoryName} value={subCategoryName}>
+            {startCase(subCategoryName)}
           </MenuItem>
         ))}
       </Select>

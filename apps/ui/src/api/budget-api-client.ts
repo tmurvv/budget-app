@@ -231,6 +231,7 @@ export const saveTransactionSplit = async (
     transactionId: number;
     month: string;
     amount: number;
+    startMonth?: string;
   }>,
 ) => {
   const response = await fetch(

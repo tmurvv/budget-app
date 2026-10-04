@@ -15,16 +15,29 @@ type SplitTransactionDialogProps = {
   amount: number;
   open: boolean;
   onClose: () => void;
-  onSave: (numberOfMonths: number) => Promise<void>;
+  onSave: (numberOfMonths: number, startMonth: string) => Promise<void>;
+  startMonth?: string;
+  numberOfMonths?: number;
 };
 
 export const SplitTransactionDialog = (props: SplitTransactionDialogProps) => {
-  const { amount, open, onClose, onSave } = props;
+  const { amount, open, onClose, onSave, startMonth, numberOfMonths: initialNumberOfMonths } = props;
 
-  const [numberOfMonths, setNumberOfMonths] = useState("7");
+  const [numberOfMonths, setNumberOfMonths] = useState(
+    initialNumberOfMonths?.toString() || "7"
+  );
+  const [allocationStartMonth, setAllocationStartMonth] = useState(
+    startMonth || DateTime.now().toFormat("yyyy-MM"),
+  );
 
   const monthlyAmount =
     Number(numberOfMonths) > 0 ? amount / Number(numberOfMonths) : 0;
+
+  const getEndMonth = () => {
+    const start = DateTime.fromFormat(allocationStartMonth, "yyyy-MM");
+    const end = start.plus({ months: Number(numberOfMonths) - 1 });
+    return end.toFormat("LLLL yyyy");
+  };
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
@@ -36,7 +49,17 @@ export const SplitTransactionDialog = (props: SplitTransactionDialogProps) => {
 
           <TextField
             fullWidth
-            label="Months"
+            label="Start Month"
+            type="month"
+            value={allocationStartMonth}
+            onChange={(event) => {
+              setAllocationStartMonth(event.target.value);
+            }}
+          />
+
+          <TextField
+            fullWidth
+            label="Number of Months"
             type="number"
             value={numberOfMonths}
             onChange={(event) => {
@@ -57,10 +80,11 @@ export const SplitTransactionDialog = (props: SplitTransactionDialogProps) => {
             })}
           </Typography>
 
-          <Typography variant="body2" color="text.secondary">
-            Starts this month ({DateTime.now().toFormat("LLLL yyyy")}
-            ).
-          </Typography>
+          {Number(numberOfMonths) > 0 && (
+            <Typography variant="body2" color="text.secondary">
+              Allocation period: {DateTime.fromFormat(allocationStartMonth, "yyyy-MM").toFormat("LLLL yyyy")} → {getEndMonth()}
+            </Typography>
+          )}
         </Stack>
       </DialogContent>
 
@@ -76,7 +100,7 @@ export const SplitTransactionDialog = (props: SplitTransactionDialogProps) => {
               return;
             }
 
-            await onSave(parsedMonths);
+            await onSave(parsedMonths, allocationStartMonth);
           }}
         >
           Save

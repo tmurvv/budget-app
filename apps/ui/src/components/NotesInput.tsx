@@ -6,10 +6,11 @@ type NotesInputProps = {
     value?: string;
     onSave: (value: string) => void;
     minWidth?: number;
+    disabled?: boolean;
 };
 
 export const NotesInput = (props: NotesInputProps) => {
-    const { value = "", onSave, minWidth = 200 } = props;
+    const { value = "", onSave, minWidth = 200, disabled = false } = props;
 
     const [localValue, setLocalValue] = useState(value);
 
@@ -29,6 +30,7 @@ export const NotesInput = (props: NotesInputProps) => {
                     onSave(localValue);
                 }
             }}
+            disabled={disabled}
         />
     );
 };

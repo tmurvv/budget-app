@@ -30,6 +30,7 @@ type TextInputProps = {
     minWidth?: number;
     useDarkStyles?: boolean;
     onBlur?: () => void;
+    disabled?: boolean;
 };
 
 export const TextInput = (props: TextInputProps) => {
@@ -40,6 +41,7 @@ export const TextInput = (props: TextInputProps) => {
         minWidth = 220,
         useDarkStyles = false,
         onBlur = () => {},
+        disabled = false,
     } = props;
 
     return (
@@ -55,6 +57,7 @@ export const TextInput = (props: TextInputProps) => {
                 ...(useDarkStyles ? darkTextFieldStyles : {}),
             }}
             onBlur={onBlur}
+            disabled={disabled}
         />
     );
 };

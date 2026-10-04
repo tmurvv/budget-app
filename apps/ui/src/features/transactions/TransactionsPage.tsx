@@ -3,7 +3,7 @@ import { DateTime } from "luxon";
 import { Box, FormControlLabel, Switch, Typography } from "@mui/material";
 
 import { getTransactions } from "../../api/budget-api-client";
-import { CategorySelect, SearchInput } from "../../components";
+import { CategorySelect, SearchInput, SubcategorySelect } from "../../components";
 import { TransactionTable } from "./TransactionTable";
 import type { Transaction } from "./types";
 
@@ -17,6 +17,7 @@ export const TransactionsPage = ({
   onCategoryFilterChange,
 }: TransactionsPageProps) => {
   const [selectedCategory, setSelectedCategory] = useState(initialCategory);
+  const [selectedSubcategory, setSelectedSubcategory] = useState("");
   const [showUncategorizedOnly, setShowUncategorizedOnly] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -55,6 +56,10 @@ export const TransactionsPage = ({
       ? true
       : transaction.category === selectedCategory;
 
+    const matchesSubcategory = !selectedSubcategory
+      ? true
+      : transaction.subCategory === selectedSubcategory;
+
     const matchesSearch = !normalizedSearchText
       ? true
       : normalizedDescription.includes(normalizedSearchText) ||
@@ -67,7 +72,7 @@ export const TransactionsPage = ({
       ? hasIncompleteCategorization
       : true;
 
-    return matchesCategory && matchesSearch && matchesUncategorized;
+    return matchesCategory && matchesSubcategory && matchesSearch && matchesUncategorized;
   });
 
   return (
@@ -88,7 +93,7 @@ export const TransactionsPage = ({
 
       <Box
         sx={{
-          gap: 5,
+          gap: 2,
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
@@ -101,7 +106,18 @@ export const TransactionsPage = ({
           useDarkStyles
           onChange={(value) => {
             setSelectedCategory(value);
+            setSelectedSubcategory("");
             onCategoryFilterChange?.(value);
+          }}
+        />
+
+        <SubcategorySelect
+          label="Subcategory"
+          value={selectedSubcategory}
+          selectedCategory={selectedCategory}
+          useDarkStyles
+          onChange={(value) => {
+            setSelectedSubcategory(value);
           }}
         />
 

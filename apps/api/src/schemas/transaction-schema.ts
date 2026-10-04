@@ -10,6 +10,7 @@ export const transactionSchema = z.object({
   category: z.string().optional(),
   subCategory: z.string().optional(),
   notes: z.string().optional(),
+  reviewed: z.boolean().default(false),
   raw: z.record(z.string(), z.unknown()).optional(),
 });
 

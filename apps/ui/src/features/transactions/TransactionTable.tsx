@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
   Box,
   Button,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
@@ -141,6 +142,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
   const handleSplitTransaction = async (
     transaction: Transaction,
     numberOfMonths: number,
+    startMonth?: string,
   ) => {
     const transactionId = transaction.id;
 
@@ -150,19 +152,20 @@ export const TransactionTable = (props: TransactionTableProps) => {
 
     const monthlyAmount = transaction.amount / numberOfMonths;
 
-    const transactionMonth = DateTime.fromISO(transaction.date).startOf(
-      "month",
-    );
+    const allocationStartMonth = startMonth
+      ? DateTime.fromFormat(startMonth, "yyyy-MM").startOf("month")
+      : DateTime.fromISO(transaction.date).startOf("month");
 
     const allocations = Array.from(
       { length: numberOfMonths },
       (_, monthIndex) => {
         return {
           transactionId,
-          month: transactionMonth
+          month: allocationStartMonth
             .plus({ months: monthIndex })
             .toFormat("yyyy-MM"),
           amount: monthlyAmount,
+          startMonth: allocationStartMonth.toFormat("yyyy-MM"),
         };
       },
     );
@@ -194,6 +197,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
       amount: editingTransaction.amount,
       category: editingTransaction.category,
       subCategory: editingTransaction.subCategory,
+      reviewed: true,
     });
 
     setEditingTransaction(null);
@@ -269,6 +273,7 @@ export const TransactionTable = (props: TransactionTableProps) => {
         <Table size="small">
           <TableHead>
             <TableRow>
+              <TableCell align="right">Reviewed?</TableCell>
               <TableCell>Date</TableCell>
               <TableCell>Bank</TableCell>
               <TableCell>Description</TableCell>
@@ -277,8 +282,6 @@ export const TransactionTable = (props: TransactionTableProps) => {
               <TableCell>Sub-category</TableCell>
               <TableCell align="center">Split</TableCell>
               <TableCell>Notes</TableCell>
-              <TableCell align="center">Edit</TableCell>
-              <TableCell align="center">Delete</TableCell>
             </TableRow>
           </TableHead>
 
@@ -290,6 +293,44 @@ export const TransactionTable = (props: TransactionTableProps) => {
                   `${transaction.date}-${transaction.description}-${transaction.amount}-${transactionIndex}`
                 }
               >
+                <TableCell align="center" sx={{ padding: "4px 8px" }}>
+                  <Box sx={{ display: "flex", gap: 0.25, alignItems: "center" }}>
+                    <IconButton
+                      size="small"
+                      color="primary"
+                      onClick={() => {
+                        setEditingTransaction(transaction);
+                      }}
+                    >
+                      <EditIcon />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => {
+                        void handleDelete(transaction.id);
+                      }}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                    <Checkbox
+                      size="small"
+                      checked={transaction.reviewed ?? false}
+                      onChange={async (event) => {
+                        if (!transaction.id) {
+                          return;
+                        }
+
+                        await updateTransaction(transaction.id, {
+                          reviewed: event.target.checked,
+                        });
+
+                        onRefresh();
+                      }}
+                    />
+                  </Box>
+                </TableCell>
+
                 <TableCell>{formatDate(transaction.date)}</TableCell>
 
                 <TableCell sx={{ whiteSpace: "nowrap" }}>
@@ -357,28 +398,6 @@ export const TransactionTable = (props: TransactionTableProps) => {
                       onRefresh();
                     }}
                   />
-                </TableCell>
-
-                <TableCell align="center">
-                  <IconButton
-                    color="primary"
-                    onClick={() => {
-                      setEditingTransaction(transaction);
-                    }}
-                  >
-                    <EditIcon />
-                  </IconButton>
-                </TableCell>
-
-                <TableCell align="center">
-                  <IconButton
-                    color="error"
-                    onClick={() => {
-                      void handleDelete(transaction.id);
-                    }}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
                 </TableCell>
               </TableRow>
             ))}
@@ -503,8 +522,8 @@ export const TransactionTable = (props: TransactionTableProps) => {
           onClose={() => {
             setSplitTransaction(null);
           }}
-          onSave={async (numberOfMonths) => {
-            await handleSplitTransaction(splitTransaction, numberOfMonths);
+          onSave={async (numberOfMonths, startMonth) => {
+            await handleSplitTransaction(splitTransaction, numberOfMonths, startMonth);
           }}
         />
       ) : null}

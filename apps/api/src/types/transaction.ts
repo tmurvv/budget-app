@@ -8,5 +8,6 @@ export type Transaction = {
   category?: string;
   subCategory?: string;
   notes?: string;
+  reviewed?: boolean;
   raw?: Record<string, unknown>;
 };

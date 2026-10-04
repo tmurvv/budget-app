@@ -8,6 +8,7 @@ export type Transaction = {
   category?: string;
   subCategory?: string;
   notes?: string;
+  reviewed?: boolean;
   raw?: Record<string, unknown>;
 };
 
@@ -16,4 +17,5 @@ export type TransactionAllocation = {
   transactionId: number;
   month: string;
   amount: number;
+  startMonth?: string;
 };
