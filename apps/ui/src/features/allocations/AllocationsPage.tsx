@@ -339,8 +339,8 @@ export const AllocationsPage = () => {
   const filteredRows = sortedRows.filter((row) => {
     if (!showPaidOff && row.isPaidOff) return false;
     if (selectedCategory && row.category !== selectedCategory) return false;
-    return !(selectedSubCategory && row.subCategory !== selectedSubCategory)
 
+    return !(selectedSubCategory && row.subCategory !== selectedSubCategory)
   });
 
   const totalAmountRemaining = filteredRows.reduce(
